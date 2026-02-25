@@ -1,0 +1,364 @@
+@import "tailwindcss";
+
+/* ===================================
+   DAISYUI - Import all component styles
+   =================================== */
+@import "daisyui/daisyui.css";
+
+/* ===================================
+   CUSTOM THEME - LIGHT MODE
+   =================================== */
+:root {
+  /* Primary - Purple */
+  --in: 55%;
+  --inc: #3b82f6;
+  --su: 57%;
+  --suc: #10b981;
+  --er: 55%;
+  --erc: #ef4444;
+  --wa: 45%;
+  --wac: #f59e0b;
+
+  /* Primary Colors */
+  --p: #7c3aed;
+  --pf: #6d28d9;
+  --pc: #ede9fe;
+  --s: #ec4899;
+  --sf: #db2777;
+  --sc: #fce7f3;
+  --a: #8b5cf6;
+  --af: #7c3aed;
+  --ac: #ddd6fe;
+
+  /* Neutral Colors - Much darker for better contrast in light mode */
+  --n: #0f172a; /* Almost black for primary text */
+  --nc: #1e293b; /* Very dark gray for secondary text */
+  --nf: #020617; /* Pure black for emphasis */
+  --b1: #ffffff;
+  --b2: #f1f5f9; /* Slightly darker for contrast */
+  --b3: #e2e8f0; /* More visible border color */
+  --bc: #0f172a; /* Very dark for contrast */
+
+  /* Spacing & Sizing */
+  --rounded-box: 0.75rem;
+  --rounded-btn: 0.5rem;
+  --rounded-badge: 1rem;
+
+  /* Font sizes */
+  --mini-unit: 0.875rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+}
+
+/* ===================================
+   CUSTOM THEME - DARK MODE
+   =================================== */
+[data-theme="dark"] {
+  /* Dark mode colors */
+  --p: #8b5cf6;
+  --pf: #7c3aed;
+  --pc: #c4b5fd;
+  --s: #ec4899;
+  --sf: #f472b6;
+  --sc: #fbcfe8;
+  --a: #a78bfa;
+  --af: #8b5cf6;
+  --ac: #e9d5ff;
+  --n: #2a323c;
+  --nc: #a6adbb;
+  --nf: #1f2937;
+  --b1: #1a1d24;
+  --b2: #242932;
+  --b3: #2a323c;
+  --bc: #ededed;
+
+  /* Dark mode semantic colors */
+  --inc: #60a5fa;
+  --suc: #34d399;
+  --erc: #f87171;
+  --wac: #fbbf24;
+}
+
+/* ===================================
+   SYSTEM VARIABLES
+   =================================== */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* ===================================
+   DARK MODE SYSTEM COLORS
+   =================================== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.5;
+}
+
+/* Ensure dark text in light mode */
+:root body {
+  color: #0f172a;
+}
+
+@theme inline {
+  /* System colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Custom brand colors - Purple */
+  --color-primary-50: #f5f3ff;
+  --color-primary-100: #ede9fe;
+  --color-primary-200: #ddd6fe;
+  --color-primary-300: #c4b5fd;
+  --color-primary-400: #a78bfa;
+  --color-primary-500: #8b5cf6;
+  --color-primary-600: #7c3aed;
+  --color-primary-700: #6d28d9;
+  --color-primary-800: #5b21b6;
+  --color-primary-900: #4c1d95;
+
+  /* Custom brand colors - Pink */
+  --color-accent-50: #fdf2f8;
+  --color-accent-100: #fce7f3;
+  --color-accent-200: #fbcfe8;
+  --color-accent-300: #f9a8d4;
+  --color-accent-400: #f472b6;
+  --color-accent-500: #ec4899;
+  --color-accent-600: #db2777;
+  --color-accent-700: #be185d;
+  --color-accent-800: #9d174d;
+  --color-accent-900: #831843;
+}
+
+/* ===================================
+   BACKGROUND STYLES
+   =================================== */
+
+/* Animated gradient background - Light Mode */
+body {
+  background: linear-gradient(-45deg, #ede9fe, #f3e8ff, #fae8ff, #fce7f3);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Dark Mode Background */
+[data-theme="dark"] body {
+  background: linear-gradient(-45deg, #0f0f1a, #1a1a2e, #0a0a0f, #16213e);
+  background-size: 400% 400%;
+}
+
+/* Subtle overlay pattern */
+.bg-pattern {
+  background-image:
+    radial-gradient(at 47% 33%, hsl(262, 77%, 18%) 0, transparent 59%),
+    radial-gradient(at 82% 65%, hsl(218, 39%, 11%) 0, transparent 55%),
+    radial-gradient(at 15% 75%, hsl(262, 77%, 18%) 0, transparent 50%);
+}
+
+/* Floating orbs effect - Light Mode */
+.floating-orbs::before,
+.floating-orbs::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: -1;
+  opacity: 0.6;
+}
+
+.floating-orbs::before {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.2) 0%, transparent 70%);
+  top: -200px;
+  left: -200px;
+  animation: float1 20s ease-in-out infinite;
+}
+
+.floating-orbs::after {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, transparent 70%);
+  bottom: -150px;
+  right: -150px;
+  animation: float2 25s ease-in-out infinite;
+}
+
+/* Dark Mode Floating Orbs - More Subtle */
+[data-theme="dark"] .floating-orbs::before {
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.12) 0%, transparent 70%);
+  opacity: 0.4;
+}
+
+[data-theme="dark"] .floating-orbs::after {
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.12) 0%, transparent 70%);
+  opacity: 0.4;
+}
+
+@keyframes float1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(100px, 100px) scale(1.1); }
+  66% { transform: translate(-50px, 50px) scale(0.9); }
+}
+
+@keyframes float2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-100px, -50px) scale(1.1); }
+  66% { transform: translate(50px, 100px) scale(0.9); }
+}
+
+/* ===================================
+   UTILITY CLASSES
+   =================================== */
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Remove transitions for specific elements if needed */
+.no-transition {
+  transition: none !important;
+}
+
+/* Focus visible styles */
+*:focus-visible {
+  outline: 2px solid var(--p);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--b2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--n);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pf);
+}
+
+/* ===================================
+   PRINT STYLES
+   =================================== */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ===================================
+   FORCE TEXT COLORS FOR CARDS
+   =================================== */
+.card-text-light {
+  color: #000000 !important;
+}
+
+.card-description-light {
+  color: #000000 !important;
+}
+
+/* Dark mode styles */
+[data-theme="dark"] .card-text-light,
+[data-theme="dark"] .card-description-light {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .card-description-light {
+  color: #d1d5db !important;
+}
+
+/* Card icons - only white in dark mode, keep original color in light mode */
+[data-theme="dark"] .card-icon {
+  color: #ffffff !important;
+}
+
+/* Header icons - only white in dark mode, keep original color in light mode */
+[data-theme="dark"] .header-icon {
+  color: #ffffff !important;
+}
+
+/* Header button text - only white in dark mode */
+[data-theme="dark"] .header-button-text {
+  color: #ffffff !important;
+}
+
+/* CTA text - only white in dark mode */
+.cta-title {
+  color: #0f172a !important;
+}
+
+.cta-description {
+  color: #334155 !important;
+}
+
+[data-theme="dark"] .cta-title,
+[data-theme="dark"] .cta-description {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cta-description {
+  color: #d1d5db !important;
+}
+
+/* Learn More button - only white in dark mode */
+[data-theme="dark"] .btn-ghost {
+  color: #ffffff !important;
+}
+
+/* Footer headings - only white in dark mode */
+.footer-heading {
+  color: #0f172a !important;
+}
+
+[data-theme="dark"] .footer-heading {
+  color: #ffffff !important;
+}
+
+/* Footer icons - only white in dark mode */
+[data-theme="dark"] .footer-icon {
+  color: #ffffff !important;
+}

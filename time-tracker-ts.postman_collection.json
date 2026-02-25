@@ -1,0 +1,825 @@
+{
+  "info": {
+    "_postman_id": "181778f3-75d0-4ffe-89be-8cb682b04e25",
+    "name": "time-tracker-ts",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51661060",
+    "_collection_link": "https://go.postman.co/collection/51661060-181778f3-75d0-4ffe-89be-8cb682b04e25?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "updateUser",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ODA3NWUwMTIwMjM4YjljMWE5MDcxOSIsImlhdCI6MTc3MDAzMjA4NiwiZXhwIjoxNzcwNjM2ODg2fQ.vyOshsA4s-bFdhlq0wJVFwHKnoEMCQXgn0DB948tyUU",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"rahul@gmail.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/user/update/698075e0120238b9c1a90719",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "user",
+                "update",
+                "698075e0120238b9c1a90719"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "registerUser",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"rahul\",\r\n    \"email\": \"rahul@gmail.com\",\r\n    \"password\": \"rahul\",\r\n    \"fullname\": \"Rahul Mehta\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/user/register",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "user",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getProfileDetails",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ODA3NWUwMTIwMjM4YjljMWE5MDcxOSIsImlhdCI6MTc3MDAzMjA4NiwiZXhwIjoxNzcwNjM2ODg2fQ.vyOshsA4s-bFdhlq0wJVFwHKnoEMCQXgn0DB948tyUU",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"rahul@gmail.com\"\r\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/user/profile",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "loginUser",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"jitendra@gmail.com\",\r\n    \"password\": \"jitendra\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/user/login",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "user",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "deleteUser",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ODA3NWUwMTIwMjM4YjljMWE5MDcxOSIsImlhdCI6MTc3MDAzMjA4NiwiZXhwIjoxNzcwNjM2ODg2fQ.vyOshsA4s-bFdhlq0wJVFwHKnoEMCQXgn0DB948tyUU",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"rahull0354\",\r\n    \"email\": \"rahul@gmail.com\",\r\n    \"password\": \"rahul\",\r\n    \"fullname\": \"Rahul Mehta\"\r\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/user/delete",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "user",
+                "delete"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Project",
+      "item": [
+        {
+          "name": "createProject",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"projectName\": \"Home Management System\",\r\n    \"clientName\": \"Umer Saiyed\",\r\n    \"hourlyRate\": 200,\r\n    \"description\": \"This is the project done for week - (7) | Database Management\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/project/create",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "project",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "deleteProject",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/project/delete/6981c8e30d7c45e2e4b36794",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "project",
+                "delete",
+                "6981c8e30d7c45e2e4b36794"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "updateProject",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"projectName\": \"Time Tracker - API [TS]\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/project/update/6981d3ce986a41780030459d",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "project",
+                "update",
+                "6981d3ce986a41780030459d"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getAllProjectOfParticularUser",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/project/myProjects",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "project",
+                "myProjects"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getParticularProjectDetails",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/project/projectDetails/6981d3ce986a41780030459d",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "project",
+                "projectDetails",
+                "6981d3ce986a41780030459d"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "changeStatusOfProject",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"status\": \"hold\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/project/changeStatus/6981d3ce986a41780030459d",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "project",
+                "changeStatus",
+                "6981d3ce986a41780030459d"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "TimeEntry",
+      "item": [
+        {
+          "name": "startTimeEntry",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"description\": \"Started development for module - 1\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/timeEntry/startTimeEntry/698466907bb712bd0db06157",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "timeEntry",
+                "startTimeEntry",
+                "698466907bb712bd0db06157"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "stopTimeEntry",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/timeEntry/stopTimeEntry/698466c47bb712bd0db06160",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "timeEntry",
+                "stopTimeEntry",
+                "698466c47bb712bd0db06160"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "applyBreak",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/timeEntry/break/698466c47bb712bd0db06160",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "timeEntry",
+                "break",
+                "698466c47bb712bd0db06160"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resumeTimer",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/timeEntry/resume/698466c47bb712bd0db06160",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "timeEntry",
+                "resume",
+                "698466c47bb712bd0db06160"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "completeEntry",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/timeEntry/complete/6982f5ebd9e6ad09a8fab06e",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "timeEntry",
+                "complete",
+                "6982f5ebd9e6ad09a8fab06e"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Exports",
+      "item": [
+        {
+          "name": "exportProjectCSV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/export/project/csv",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "export",
+                "project",
+                "csv"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "exportTimeEntriesExcel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/export/timeEntry/excel",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "export",
+                "timeEntry",
+                "excel"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "exportProjectsExcel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/export/project/excel",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "export",
+                "project",
+                "excel"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "exportTimeEntriesCSV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/export/timeEntry/csv",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "export",
+                "timeEntry",
+                "csv"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "exportProjectTimeEntryCSV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/export/projectEntries/6983366ea77f94ab781eb3fb/csv/",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "export",
+                "projectEntries",
+                "6983366ea77f94ab781eb3fb",
+                "csv",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "exportProjectTimeEntryExcel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/export/projectEntries/6983366ea77f94ab781eb3fb/excel",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "export",
+                "projectEntries",
+                "6983366ea77f94ab781eb3fb",
+                "excel"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "exportSummaryReportCSV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/export/summary/csv",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "export",
+                "summary",
+                "csv"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "exportSummaryReportExcel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/export/summary/excel",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "export",
+                "summary",
+                "excel"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "exportTimeEntryByDateExcel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/export/entriesByDate/2026-01-05/2026-02-05/excel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "export",
+                "entriesByDate",
+                "2026-01-05",
+                "2026-02-05",
+                "excel"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseURL",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}
