@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Toaster } from "react-hot-toast";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,46 +33,41 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider>
-          <QueryProvider>
-            <div className="min-h-screen flex flex-col floating-orbs">
-              {/* Header */}
-              <Header />
+        <AuthProvider>
+          <ThemeProvider>
+            <QueryProvider>
+              <div className="min-h-screen flex flex-col floating-orbs">
+                <Header />
+                <main className="flex-1 relative">{children}</main>
+                <Footer />
+              </div>
 
-              {/* Main Content */}
-              <main className="flex-1 relative">
-                {children}
-              </main>
-
-              {/* Footer */}
-              <Footer />
-            </div>
-
-            {/* Toast Notifications */}
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: 'hsl(var(--bcd))',
-                  color: 'hsl(var(--bc))',
-                },
-                success: {
-                  iconTheme: {
-                    primary: 'hsl(var(--su))',
-                    secondary: 'hsl(var(--bc))',
+              {/* Toast Notifications */}
+              <Toaster
+                position="bottom-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: "hsl(var(--bcd))",
+                    color: "hsl(var(--bc))",
                   },
-                },
-                error: {
-                  iconTheme: {
-                    primary: 'hsl(var(--er))',
-                    secondary: 'hsl(var(--bc))',
+                  success: {
+                    iconTheme: {
+                      primary: "hsl(var(--su))",
+                      secondary: "hsl(var(--bc))",
+                    },
                   },
-                },
-              }}
-            />
-          </QueryProvider>
-        </ThemeProvider>
+                  error: {
+                    iconTheme: {
+                      primary: "hsl(var(--er))",
+                      secondary: "hsl(var(--bc))",
+                    },
+                  },
+                }}
+              />
+            </QueryProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

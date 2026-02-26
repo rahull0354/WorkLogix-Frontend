@@ -38,7 +38,7 @@ export default function Home() {
               Get Started
               <ArrowRight className="w-5 h-5" />
             </Link>
-            <Link href="/register" className="btn btn-outline btn-lg">
+            <Link href="/register" className="btn btn-ghost border border-indigo-500 btn-lg">
               Create Account
             </Link>
           </div>

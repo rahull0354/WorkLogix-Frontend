@@ -1,18 +1,25 @@
 "use client";
 
 import { User, LoginRequest, RegisterRequest } from "@/lib/types";
-import axios from "axios";
-import { useRouter } from "next/router";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { api } from "@/lib/api/axios";
+import { useRouter } from "next/navigation";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import toast from "react-hot-toast";
+import axios from "axios";
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credetials: LoginRequest) => Promise<void>;
-  register: (darta: RegisterRequest) => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
   refreshUser: () => Promise<void>;
@@ -27,6 +34,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // only run on client side
+    if (typeof window === "undefined") return;
+
     const initializeAuth = () => {
       try {
         const storedToken = localStorage.getItem("token");
@@ -54,8 +64,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setIsLoading(true);
 
-        const response = await axios.post("/user/login", credentials);
-        const { token: newToken, user: newUser } = response.data;
+        const response = await api.post("/user/login", credentials);
+        const { accessToken: newToken, user: userData } = response.data;
+
+        // Map backend user structure to our User interface
+        const newUser: User = {
+          _id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          fullname: userData.username,
+        };
 
         // update data
         setToken(newToken);
@@ -65,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("token", newToken);
         localStorage.setItem("user", JSON.stringify(newUser));
 
-        toast.success(`Welcome back, ${newUser.fullname}! 🎉`);
+        toast.success(`Welcome back, ${newUser.username}! 🎉`);
         router.push("/dashboard");
       } catch (error: any) {
         const message =
@@ -86,8 +104,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setIsLoading(true);
 
-        const response = await axios.post("/user/register", data);
-        const { token: newToken, user: newUser } = response.data;
+        const response = await api.post("/user/register", data);
+        const { accessToken: newToken, user: userData } = response.data;
+
+        // Map backend user structure to our User interface
+        const newUser: User = {
+          _id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          fullname: userData.fullname || userData.username,
+        };
 
         // update state
         setToken(newToken);
@@ -125,32 +151,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   //   update user function
-  const updateUser = useCallback((data: Partial<User>) => {
-    if(user) {
-        const updatedUser = {...user, ...data}
-        setUser(updatedUser)
-        localStorage.setItem('user', JSON.stringify(updatedUser))
-    }
-  }, [user])
+  const updateUser = useCallback(
+    (data: Partial<User>) => {
+      if (user) {
+        const updatedUser = { ...user, ...data };
+        setUser(updatedUser);
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      }
+    },
+    [user],
+  );
 
-//   refresh user function
+  //   refresh user function
   const refreshUser = useCallback(async () => {
-    if(!token) return;
+    if (!token) return;
 
     try {
-        const response = await axios.get('user/profile', {
-            headers: {Authorization: `Bearer ${token}`}
-        })
+      const response = await api.get("/user/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-        setUser(response.data)
-        localStorage.setItem('user', JSON.stringify(response.data))
-    } catch (error) {
-        console.error('Error refreshing User: ', error);
-        if(axios.isAxiosError(error) && error.response?.status === 401) {
-            logout()
-        }
+      setUser(response.data);
+      localStorage.setItem("user", JSON.stringify(response.data));
+    } catch (error: any) {
+      console.error("Error refreshing User: ", error);
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        logout();
+      }
     }
-  }, [token, logout])
+  }, [token, logout]);
 
   const isAuthenticated = !!user && !!token;
   const value: AuthContextType = {
@@ -162,20 +191,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     register,
     logout,
     updateUser,
-    refreshUser
+    refreshUser,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-        {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth () {
-    const context = useContext(AuthContext)
-    if(context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider')
-    }
-    return context;
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
