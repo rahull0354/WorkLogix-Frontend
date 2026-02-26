@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from './ThemeProvider';
+import { useAuth } from '@/contexts/AuthContext';
 import { Moon, Sun, Clock, Menu, X, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
+  const {user, isAuthenticated} = useAuth()
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -20,17 +22,19 @@ export function Header() {
   ];
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
+  console.log('Auth Test:', {user, isAuthenticated});
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-base-100/80 border-b border-base-300">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
+          
           <Link href="/" className="flex items-center gap-3 group">
             <div className="relative">
               <div className="absolute inset-0 bg-linear-to-r from-primary to-secondary rounded-lg blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
               <div className="relative w-10 h-10 bg-linear-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-lg">
-                <Clock className="w-6 h-6 text-white" strokeWidth={2.5} />
+                <Clock className="w-6 h-6 text-purple-600" strokeWidth={2.5} />
               </div>
             </div>
             <div className="hidden sm:block">

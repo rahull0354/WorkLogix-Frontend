@@ -1,13 +1,6 @@
 @import "tailwindcss";
-
-/* ===================================
-   DAISYUI - Import all component styles
-   =================================== */
 @import "daisyui/daisyui.css";
 
-/* ===================================
-   CUSTOM THEME - LIGHT MODE
-   =================================== */
 :root {
   /* Primary - Purple */
   --in: 55%;
@@ -55,9 +48,6 @@
   --text-4xl: 2.25rem;
 }
 
-/* ===================================
-   CUSTOM THEME - DARK MODE
-   =================================== */
 [data-theme="dark"] {
   /* Dark mode colors */
   --p: #8b5cf6;
@@ -84,17 +74,11 @@
   --wac: #fbbf24;
 }
 
-/* ===================================
-   SYSTEM VARIABLES
-   =================================== */
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
-/* ===================================
-   DARK MODE SYSTEM COLORS
-   =================================== */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -361,4 +345,326 @@ body {
 /* Footer icons - only white in dark mode */
 [data-theme="dark"] .footer-icon {
   color: #ffffff !important;
+}
+
+/* ===================================
+   AUTH PAGES - TEXT COLORS
+   =================================== */
+
+/* Auth page titles - black in light, white in dark */
+.auth-title {
+  color: #0f172a !important;
+}
+
+[data-theme="dark"] .auth-title {
+  color: #ffffff !important;
+}
+
+/* Auth page descriptions - dark gray in light, light gray in dark */
+.auth-description {
+  color: #475569 !important;
+}
+
+[data-theme="dark"] .auth-description {
+  color: #94a3b8 !important;
+}
+
+/* Auth form labels */
+.auth-label {
+  color: #1f2937 !important;
+}
+
+[data-theme="dark"] .auth-label {
+  color: #e2e8f0 !important;
+}
+
+/* Auth input placeholders */
+.auth-input::placeholder {
+  color: #9ca3af !important;
+}
+
+[data-theme="dark"] .auth-input::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Auth links */
+.auth-link {
+  color: #475569 !important;
+}
+
+[data-theme="dark"] .auth-link {
+  color: #94a3b8 !important;
+}
+
+/* Auth card icons - white in dark mode */
+.auth-icon {
+  color: #0f172a !important;
+}
+
+[data-theme="dark"] .auth-icon {
+  color: #e2e8f0 !important;
+}
+
+/* ===================================
+   SPLIT LOGIN PAGE STYLES
+   =================================== */
+
+.split-login-container {
+  min-height: 100vh;
+  display: flex;
+}
+
+.left-panel {
+  width: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+}
+
+.right-panel {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+  background: var(--b1);
+}
+
+/* Geometric Shapes */
+.geo-shape {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.1;
+}
+
+.shape-1 {
+  width: 400px;
+  height: 400px;
+  background: white;
+  top: -100px;
+  left: -100px;
+  animation: float 8s ease-in-out infinite;
+}
+
+.shape-2 {
+  width: 300px;
+  height: 300px;
+  background: white;
+  bottom: -50px;
+  right: -50px;
+  animation: float 10s ease-in-out infinite reverse;
+}
+
+.shape-3 {
+  width: 200px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.2);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: pulse 4s ease-in-out infinite;
+}
+
+.shape-4 {
+  width: 150px;
+  height: 150px;
+  background: white;
+  border-radius: 20% 50% 30% 70%;
+  top: 20%;
+  right: 20%;
+  animation: morph 8s ease-in-out infinite;
+}
+
+.shape-5 {
+  width: 100px;
+  height: 100px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+  bottom: 30%;
+  left: 30%;
+  animation: morph 6s ease-in-out infinite reverse;
+}
+
+/* Floating Square */
+.floating-square {
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.1);
+  position: absolute;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  top: 15%;
+  left: 20%;
+  animation: rotate 20s linear infinite;
+}
+
+.floating-square-2 {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.08);
+  position: absolute;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  bottom: 25%;
+  right: 15%;
+  animation: rotate 15s linear infinite reverse;
+}
+
+/* Triangle */
+.geo-triangle {
+  width: 0;
+  height: 0;
+  border-left: 40px solid transparent;
+  border-right: 40px solid transparent;
+  border-bottom: 70px solid rgba(255, 255, 255, 0.1);
+  position: absolute;
+  top: 60%;
+  left: 10%;
+  animation: float 12s ease-in-out infinite;
+}
+
+/* Plus Sign */
+.geo-plus {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  top: 40%;
+  right: 30%;
+}
+
+.geo-plus::before,
+.geo-plus::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.geo-plus::before {
+  width: 30px;
+  height: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.geo-plus::after {
+  width: 4px;
+  height: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.geo-plus {
+  animation: spin 10s linear infinite;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-30px) rotate(5deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.3;
+  }
+}
+
+@keyframes morph {
+  0%, 100% {
+    border-radius: 20% 50% 30% 70%;
+  }
+  25% {
+    border-radius: 50% 20% 70% 30%;
+  }
+  50% {
+    border-radius: 30% 70% 50% 20%;
+  }
+  75% {
+    border-radius: 70% 30% 20% 50%;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Left Panel Content */
+.left-content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  color: white;
+}
+
+.left-content h2 {
+  font-size: 3rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.left-content p {
+  font-size: 1.25rem;
+  opacity: 0.9;
+  max-width: 400px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Dark Mode - Left Panel */
+[data-theme="dark"] .left-panel {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .split-login-container {
+    flex-direction: column;
+  }
+
+  .left-panel {
+    width: 100%;
+    min-height: 250px;
+    padding: 2rem;
+  }
+
+  .right-panel {
+    width: 100%;
+    padding: 2rem;
+  }
+
+  .left-content h2 {
+    font-size: 2rem;
+  }
+
+  .left-content p {
+    font-size: 1rem;
+  }
 }
