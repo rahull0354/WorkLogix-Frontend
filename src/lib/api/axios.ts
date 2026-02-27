@@ -49,7 +49,6 @@ api.interceptors.response.use(
 
       switch (status) {
         case 401:
-          console.error("Unauthorized: Token expired or invalid");
           if (typeof window !== "undefined") {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
@@ -57,24 +56,22 @@ api.interceptors.response.use(
           }
           break;
         case 403:
-          console.error("Forbidded: You don't have permission");
+          // Forbidden
           break;
         case 404:
-          console.error("Not Found: Resource not found");
+          // Not Found
           break;
         case 500:
-          console.error("Server Error: Something went wrong");
+          // Server Error
           break;
         default:
-          console.error(`Error: ${status}: `, data?.message || data);
+          // Let AuthContext handle all other errors with toast
+          break;
       }
     } else if (error.request) {
-      // request made but no response received
-      console.error("Network Error: No response received from server");
-      console.error("Make sure your backend is running on the correct port");
-      console.error(`Expected: ${process.env.NEXT_PUBLIC_API_BASE_URL}`);
+      // Network error - let AuthContext handle
     } else {
-      console.error("Request Setup Error: ", error.message);
+      // Request setup error - let AuthContext handle
     }
 
     return Promise.reject(error);

@@ -41,33 +41,37 @@ export default function RootLayout({
                 <main className="flex-1 relative">{children}</main>
                 <Footer />
               </div>
-
-              {/* Toast Notifications */}
-              <Toaster
-                position="bottom-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: "hsl(var(--bcd))",
-                    color: "hsl(var(--bc))",
-                  },
-                  success: {
-                    iconTheme: {
-                      primary: "hsl(var(--su))",
-                      secondary: "hsl(var(--bc))",
-                    },
-                  },
-                  error: {
-                    iconTheme: {
-                      primary: "hsl(var(--er))",
-                      secondary: "hsl(var(--bc))",
-                    },
-                  },
-                }}
-              />
             </QueryProvider>
           </ThemeProvider>
         </AuthProvider>
+
+        {/* Toast Notifications - Outside all providers */}
+        <Toaster
+          position="top-right"
+          gutter={8}
+          toastOptions={{
+            duration: 5000,
+            style: {
+              background: "#7c3aed",
+              color: "#ffffff",
+              border: "1px solid #374151",
+              borderRadius: "8px",
+              padding: "12px 16px",
+            },
+            success: {
+              iconTheme: {
+                primary: "#10b981",
+                secondary: "#ffffff",
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: "#ef4444",
+                secondary: "#ffffff",
+              },
+            },
+          }}
+        />
       </body>
     </html>
   );
