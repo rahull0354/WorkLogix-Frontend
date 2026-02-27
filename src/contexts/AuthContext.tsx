@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           _id: userData.id,
           username: userData.username,
           email: userData.email,
-          fullname: userData.username,
+          fullname: userData.fullname,
         };
 
         // update data
@@ -83,12 +83,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("token", newToken);
         localStorage.setItem("user", JSON.stringify(newUser));
 
-        toast.success(`Welcome back, ${newUser.username}! 🎉`);
+        // cookie creation
+        document.cookie = `token=${newToken}; path=/; max-age=30d`
+
+        toast.success(`Welcome back, ${newUser.username}!`);
         router.push("/dashboard");
       } catch (error: any) {
+        // Try multiple possible paths for the error message
         const message =
           error.response?.data?.message ||
+          error.response?.data?.error ||
+          error.response?.data ||
+          error.message ||
           "Login failed. Please check your credentials.";
+
         toast.error(message);
         throw error;
       } finally {
@@ -112,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           _id: userData.id,
           username: userData.username,
           email: userData.email,
-          fullname: userData.fullname || userData.username,
+          fullname: userData.fullname,
         };
 
         // update state
@@ -123,8 +131,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("token", newToken);
         localStorage.setItem("user", JSON.stringify(newUser));
 
+        // cookie creation
+        document.cookie = `token=${newToken}; path=/; max-age=30d`
+
         toast.success("Account Created Successfully!");
-        router.push("/dashboard");
+        router.push("/login");
       } catch (error: any) {
         const message =
           error.response?.data?.message ||
@@ -146,6 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
 
+    // cookie creation
+    document.cookie = `token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
     toast.success("Logged Out Successfully!");
     router.push("/login");
   }, [router]);

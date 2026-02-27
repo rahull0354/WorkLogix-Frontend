@@ -1,29 +1,32 @@
 "use client";
 
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Infinity } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Infinity, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
+import { ButtonLoader } from "@/components/ButtonLoader";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, isLoading: authLoading } = useAuth();
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {},
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
 
@@ -31,15 +34,13 @@ export default function LoginPage() {
     const newErrors: typeof errors = {};
 
     if (!formData.email) {
-      newErrors.email = 'Email is required';
+      newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email format';
+      newErrors.email = "Invalid email format";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = "Password is required";
     }
 
     setErrors(newErrors);
@@ -50,14 +51,14 @@ export default function LoginPage() {
     e.preventDefault();
 
     if (!validateForm()) {
-      toast.error('Please fix the errors before submitting');
+      toast.error("Please fix the errors before submitting");
       return;
     }
 
     try {
       await login(formData);
     } catch (error) {
-      console.error('Login failed:', error);
+      
     }
   };
 
@@ -84,8 +85,14 @@ export default function LoginPage() {
               <div className="relative w-24 h-24 mx-auto bg-linear-to-br from-primary to-secondary rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden">
                 {/* Animated infinity symbol */}
                 <div className="relative">
-                  <Infinity className="w-14 h-14 text-white animate-pulse" strokeWidth={2} />
-                  <Lock className="w-8 h-8 text-white/80 absolute -bottom-1 -right-2" strokeWidth={3} />
+                  <Infinity
+                    className="w-14 h-14 text-white animate-pulse"
+                    strokeWidth={2}
+                  />
+                  <Lock
+                    className="w-8 h-8 text-white/80 absolute -bottom-1 -right-2"
+                    strokeWidth={3}
+                  />
                 </div>
                 {/* Sparkle effect */}
                 <div className="absolute top-2 right-2 w-3 h-3 bg-white rounded-full animate-ping opacity-75"></div>
@@ -94,7 +101,10 @@ export default function LoginPage() {
             </div>
           </div>
           <h2>WorkLogix</h2>
-          <p>Track time, manage projects, and boost your productivity with our elegant time tracking solution.</p>
+          <p>
+            Track time, manage projects, and boost your productivity with our
+            elegant time tracking solution.
+          </p>
         </div>
       </div>
 
@@ -112,23 +122,26 @@ export default function LoginPage() {
           {/* Desktop Header */}
           <div className="hidden md:block mb-8">
             <h1 className="text-3xl font-bold mb-2 auth-title">Welcome Back</h1>
-            <p className="auth-description">Sign in to your account to continue</p>
+            <p className="auth-description">
+              Sign in to your account to continue
+            </p>
           </div>
 
           {/* Login Form */}
           <div className="card bg-base-100/80 backdrop-blur-xl shadow-xl border border-base-300">
             <div className="card-body p-8">
               <form onSubmit={handleSubmit} className="space-y-5">
-
                 {/* Email Field */}
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-medium auth-label">Email</span>
+                    <span className="label-text font-medium auth-label">
+                      Email
+                    </span>
                   </label>
                   <div className="relative">
-                    <div className="auth-icon absolute left-3 top-1/2 -translate-y-1/2">
-                      <Mail className="w-5 h-5" />
-                    </div>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                      <Mail className="w-5 h-5" style={{ color: 'var(--bc)' }} />
+                    </span>
                     <input
                       type="email"
                       name="email"
@@ -136,14 +149,16 @@ export default function LoginPage() {
                       value={formData.email}
                       onChange={handleChange}
                       className={`input input-bordered w-full pl-10 auth-input ${
-                        errors.email ? 'input-error' : ''
+                        errors.email ? "input-error" : ""
                       }`}
                       disabled={authLoading}
                     />
                   </div>
                   {errors.email && (
                     <label className="label">
-                      <span className="label-text-alt text-error">{errors.email}</span>
+                      <span className="label-text-alt text-error">
+                        {errors.email}
+                      </span>
                     </label>
                   )}
                 </div>
@@ -151,35 +166,43 @@ export default function LoginPage() {
                 {/* Password Field */}
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-medium auth-label">Password</span>
+                    <span className="label-text font-medium auth-label">
+                      Password
+                    </span>
                   </label>
                   <div className="relative">
-                    <div className="auth-icon absolute left-3 top-1/2 -translate-y-1/2">
-                      <Lock className="w-5 h-5" />
-                    </div>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                      <Lock className="w-5 h-5" style={{ color: 'var(--bc)' }} />
+                    </span>
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword ? "text" : "password"}
                       name="password"
                       placeholder="••••••••"
                       value={formData.password}
                       onChange={handleChange}
                       className={`input input-bordered w-full pl-10 pr-10 auth-input ${
-                        errors.password ? 'input-error' : ''
+                        errors.password ? "input-error" : ""
                       }`}
                       disabled={authLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="auth-icon absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70"
                       tabIndex={-1}
                     >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5" style={{ color: 'var(--bc)' }} />
+                      ) : (
+                        <Eye className="w-5 h-5" style={{ color: 'var(--bc)' }} />
+                      )}
                     </button>
                   </div>
                   {errors.password && (
                     <label className="label">
-                      <span className="label-text-alt text-error">{errors.password}</span>
+                      <span className="label-text-alt text-error">
+                        {errors.password}
+                      </span>
                     </label>
                   )}
                 </div>
@@ -187,10 +210,16 @@ export default function LoginPage() {
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between">
                   <label className="cursor-pointer label gap-2">
-                    <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" />
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm checkbox-primary"
+                    />
                     <span className="label-text auth-label">Remember me</span>
                   </label>
-                  <Link href="/forgot-password" className="link link-primary text-sm">
+                  <Link
+                    href="/forgot-password"
+                    className="link link-primary text-sm"
+                  >
                     Forgot password?
                   </Link>
                 </div>
@@ -198,10 +227,23 @@ export default function LoginPage() {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className={`btn btn-primary w-full gap-2${authLoading ? ' loading' : ''}`}
+                  className={`btn btn-primary w-full gap-2 relative overflow-hidden ${
+                    authLoading ? "btn-shimmer btn-spin-gradient" : ""
+                  }`}
                   disabled={authLoading}
                 >
-                  {authLoading ? 'Signing in...' : (
+                  {authLoading ? (
+                    <>
+                      <div className="flex items-center justify-center w-full">
+                        <div className="flex gap-1">
+                          <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
+                          <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                          <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+                        </div>
+                        <span className="ml-3">Signing in...</span>
+                      </div>
+                    </>
+                  ) : (
                     <>
                       Sign In
                       <ArrowRight className="w-4 h-4" />
@@ -211,12 +253,15 @@ export default function LoginPage() {
               </form>
 
               {/* Divider */}
-              <div className="divider">OR</div>
+              <div className="divider label-text auth-label">OR</div>
 
               {/* Register Link */}
-              <p className="text-center text-sm">
-                Don't have an account?{' '}
-                <Link href="/register" className="link link-primary font-medium">
+              <p className="text-center text-sm label-text auth-label">
+                Don't have an account?{" "}
+                <Link
+                  href="/register"
+                  className="link link-primary font-medium"
+                >
                   Create one here
                 </Link>
               </p>

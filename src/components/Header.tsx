@@ -9,7 +9,7 @@ import { useState } from 'react';
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
-  const {user, isAuthenticated} = useAuth()
+  const { user, isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -22,7 +22,11 @@ export function Header() {
   ];
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
-  console.log('Auth Test:', {user, isAuthenticated});
+
+  const handleLogout = () => {
+    logout();
+    setMobileMenuOpen(false);
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-base-100/80 border-b border-base-300">
@@ -80,16 +84,19 @@ export function Header() {
             </button>
 
             {/* Profile Menu (Desktop) */}
-            <div className="hidden md:flex items-center gap-2">
-              <Link href="/profile" className="btn btn-ghost btn-sm gap-2">
-                <User className="header-icon w-4 h-4" />
-                <span className="header-button-text hidden lg:inline">Profile</span>
-              </Link>
-              <button className="btn btn-ghost btn-sm gap-2 text-error hover:bg-error/10">
-                <LogOut className="header-icon w-4 h-4" />
-                <span className="header-button-text hidden lg:inline">Logout</span>
-              </button>
-            </div>
+
+            {isAuthenticated && (
+              <div className="hidden md:flex items-center gap-2">
+                <Link href="/profile" className="btn btn-ghost btn-sm gap-2">
+                  <User className="header-icon w-4 h-4" />
+                  <span className="header-button-text hidden lg:inline">Profile</span>
+                </Link>
+                <button onClick={handleLogout} className="btn btn-ghost btn-sm gap-2 text-error hover:bg-error/10">
+                  <LogOut className="header-icon w-4 h-4" />
+                  <span className="header-button-text hidden lg:inline">Logout</span>
+                </button>
+              </div>
+            )}
 
             {/* Mobile Menu Toggle */}
             <button
@@ -122,17 +129,24 @@ export function Header() {
                   {item.label}
                 </Link>
               ))}
-              <div className="divider my-2"></div>
-              <Link
-                href="/profile"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-4 py-3 rounded-lg font-medium text-sm text-base-content/70 hover:text-base-content hover:bg-base-200"
-              >
-                Profile
-              </Link>
-              <button className="px-4 py-3 rounded-lg font-medium text-sm text-error hover:bg-error/10 text-left">
-                Logout
-              </button>
+              {isAuthenticated && (
+                <>
+                  <div className="divider my-2"></div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-lg font-medium text-sm text-base-content/70 hover:text-base-content hover:bg-base-200"
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="px-4 py-3 rounded-lg font-medium text-sm text-error hover:bg-error/10 text-left"
+                  >
+                    Logout
+                  </button>
+                </>
+              )}
             </nav>
           </div>
         )}
