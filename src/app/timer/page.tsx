@@ -2,24 +2,145 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Play, Pause, Square, Flame } from "lucide-react";
+import toast from "react-hot-toast";
+import { useTimerStore, fetchActiveTimeEntry, startTimeEntryAction, stopTimerAction, takeBreakAction, resumeBreakAction, completeTimerAction } from "@/lib/stores/timerStore";
+import { useProjectStore } from "@/lib/stores/projectStore";
+import { getMyProjects } from "@/lib/api";
+import { Project } from "@/lib/types";
 
 export default function TimerPage() {
-  const [seconds, setSeconds] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [project, setProject] = useState("");
-  const [task, setTask] = useState("");
-  const [mounted, setMounted] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Store state
+  const {
+    activeEntry,
+    isRunning,
+    isOnBreak,
+    elapsedSeconds,
+    updateElapsedSeconds,
+    resetTimer,
+  } = useTimerStore();
 
+  const { projects, setProjects } = useProjectStore();
+
+  // Local form state (only for new timer creation)
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [breakSeconds, setBreakSeconds] = useState(0);
+  const [recentEntries, setRecentEntries] = useState<any[]>([]);
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const breakIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debug: Log when recentEntries changes
   useEffect(() => {
-    setMounted(true);
+    console.log("recentEntries state updated:", recentEntries);
+  }, [recentEntries]);
+
+  // Load recent entries from localStorage
+  const loadRecentEntries = (limit: number = 10) => {
+    try {
+      const stored = localStorage.getItem('completedTimeEntries');
+      console.log("📦 Loading from localStorage:", stored);
+
+      if (!stored) {
+        console.log("⚠️ No entries found in localStorage");
+        setRecentEntries([]);
+        return;
+      }
+
+      const entries = JSON.parse(stored);
+      console.log("📋 Parsed entries:", entries);
+      console.log("📊 Total entries:", entries.length);
+
+      // Sort by endTime (most recent first)
+      const sorted = entries.sort((a: any, b: any) => {
+        const aTime = new Date(a.endTime || a.updatedAt).getTime();
+        const bTime = new Date(b.endTime || b.updatedAt).getTime();
+        return bTime - aTime;
+      });
+
+      const limited = sorted.slice(0, limit);
+      console.log("✅ Setting recentEntries:", limited);
+      setRecentEntries(limited);
+    } catch (error) {
+      console.error("❌ Error loading recent entries:", error);
+    }
+  };
+
+  // Save completed entry to localStorage
+  const saveCompletedEntry = (entry: any) => {
+    try {
+      console.log("Saving completed entry:", entry);
+      const stored = localStorage.getItem('completedTimeEntries');
+      const entries = stored ? JSON.parse(stored) : [];
+
+      // Calculate duration if not present
+      const entryWithDuration = {
+        ...entry,
+        duration: entry.duration || (entry.endTime && entry.startTime
+          ? Math.floor((new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000)
+          : elapsedSeconds
+        )
+      };
+
+      console.log("Entry with duration:", entryWithDuration);
+
+      // Check if entry already exists
+      const existingIndex = entries.findIndex((e: any) => e._id === entry._id);
+      if (existingIndex >= 0) {
+        entries[existingIndex] = entryWithDuration;
+      } else {
+        entries.push(entryWithDuration);
+      }
+
+      // Keep only last 50 entries
+      const trimmed = entries.slice(-50);
+      localStorage.setItem('completedTimeEntries', JSON.stringify(trimmed));
+      console.log("Saved to localStorage. Total entries:", trimmed.length);
+
+      // Update recent entries state
+      loadRecentEntries(10);
+    } catch (error) {
+      console.error("Error saving completed entry:", error);
+    }
+  };
+
+  // Fetch data on mount
+  useEffect(() => {
+    const initData = async () => {
+      setMounted(true);
+      try {
+        // Fetch active timer
+        const activeResult = await fetchActiveTimeEntry();
+        if (activeResult.success && activeResult.entry) {
+          setSelectedProjectId(activeResult.entry.projectId);
+          setTaskDescription(activeResult.entry.description || "");
+        }
+
+        // Fetch projects
+        const projectsData: any = await getMyProjects();
+        const data = Array.isArray(projectsData) ? projectsData : projectsData.findProjects || projectsData.projects || [];
+        setProjects(data);
+
+        // Load recent entries from localStorage
+        console.log("About to load recent entries...");
+        loadRecentEntries(10);
+      } catch (error: any) {
+        console.error("Error initializing timer:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initData();
   }, []);
 
+  // Timer tick effect
   useEffect(() => {
-    if (isRunning && !isPaused) {
+    if (isRunning && !isOnBreak) {
       intervalRef.current = setInterval(() => {
-        setSeconds((prev) => prev + 1);
+        updateElapsedSeconds(elapsedSeconds + 1);
       }, 1000);
     } else {
       if (intervalRef.current) {
@@ -32,43 +153,178 @@ export default function TimerPage() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, isPaused]);
+  }, [isRunning, isOnBreak, elapsedSeconds]);
 
-  const handleStart = () => {
-    setIsRunning(true);
-    setIsPaused(false);
+  // Break timer tick effect
+  useEffect(() => {
+    if (isOnBreak) {
+      breakIntervalRef.current = setInterval(() => {
+        setBreakSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (breakIntervalRef.current) {
+        clearInterval(breakIntervalRef.current);
+      }
+      if (!isRunning && !isOnBreak) {
+        setBreakSeconds(0);
+      }
+    }
+
+    return () => {
+      if (breakIntervalRef.current) {
+        clearInterval(breakIntervalRef.current);
+      }
+    };
+  }, [isOnBreak, isRunning]);
+
+  const handleStart = async () => {
+    if (!selectedProjectId) {
+      toast.error("Please select a project");
+      return;
+    }
+
+    const result = await startTimeEntryAction(selectedProjectId, taskDescription);
+    if (result.success) {
+      toast.success("Timer started!");
+      setBreakSeconds(0); // Reset break time
+    } else {
+      toast.error(result.error || "Failed to start timer");
+    }
   };
 
-  const handlePause = () => {
-    setIsPaused(true);
+  const handlePause = async () => {
+    console.log("handlePause called");
+    console.log("activeEntry:", activeEntry);
+    console.log("isRunning:", isRunning);
+    console.log("isOnBreak:", isOnBreak);
+
+    if (!activeEntry) {
+      toast.error("No active timer to pause");
+      return;
+    }
+
+    const result = await takeBreakAction();
+    console.log("takeBreakAction result:", result);
+    console.log("Result success:", result.success);
+
+    if (result.success) {
+      toast.success("Break started!");
+      setBreakSeconds(0); // Reset break counter
+    } else {
+      toast.error(result.error || "Failed to take break");
+    }
   };
 
-  const handleStop = () => {
-    setIsRunning(false);
-    setIsPaused(false);
-    setSeconds(0);
-    setProject("");
-    setTask("");
+  const handleResume = async () => {
+    const result = await resumeBreakAction();
+    if (result.success) {
+      toast.success("Timer resumed!");
+    } else {
+      toast.error(result.error || "Failed to resume timer");
+    }
   };
 
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
+  const handleStop = async () => {
+    if (confirm("Are you sure you want to stop the timer?")) {
+      const result = await stopTimerAction();
+      if (result.success) {
+        toast.success("Timer stopped!");
+        // Don't reset form - user might want to resume
+      } else {
+        toast.error(result.error || "Failed to stop timer");
+      }
+    }
+  };
+
+  const handleComplete = async () => {
+    if (confirm("Are you sure you want to complete this time entry?")) {
+      const result = await completeTimerAction();
+      if (result.success) {
+        toast.success("Time entry completed!");
+
+        // Save completed entry to localStorage for recent entries display
+        if (result.entry) {
+          saveCompletedEntry(result.entry);
+        }
+
+        setSelectedProjectId("");
+        setTaskDescription("");
+      } else {
+        toast.error(result.error || "Failed to complete time entry");
+      }
+    }
+  };
+
+  const hrs = Math.floor(elapsedSeconds / 3600);
+  const mins = Math.floor((elapsedSeconds % 3600) / 60);
+  const secs = elapsedSeconds % 60;
 
   const progress = (secs / 60) * 100;
 
-  const quickProjects = [
-    { name: "WorkLogix", color: "#7c3aed", icon: "⚡" },
-    { name: "Client Website", color: "#3b82f6", icon: "🌐" },
-    { name: "API Development", color: "#10b981", icon: "🔧" },
-    { name: "Mobile App", color: "#ec4899", icon: "📱" },
-  ];
+  const getSelectedProject = (): Project | undefined => {
+    return projects.find((p) => p._id === selectedProjectId);
+  };
+
+  const getProjectById = (id: string): Project | undefined => {
+    return projects.find((p) => p._id === id);
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) {
+      return `${h}h ${m}m`;
+    }
+    return `${m}m`;
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return "Today";
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+  };
+
+  const getProjectTypeIcon = (type: string) => {
+    const icons: { [key: string]: { icon: string; color: string } } = {
+      api_development: { icon: "🔧", color: "from-emerald-500 to-emerald-600" },
+      web_app: { icon: "⚡", color: "from-purple-500 to-purple-600" },
+      mobile_app: { icon: "📱", color: "from-pink-500 to-pink-600" },
+      consulting: { icon: "💼", color: "from-blue-500 to-blue-600" },
+      website_redesign: { icon: "🌐", color: "from-cyan-500 to-cyan-600" },
+    };
+    return icons[type] || { icon: "📁", color: "from-slate-500 to-slate-600" };
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+          <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-purple-50 to-slate-50 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-black relative overflow-hidden">
+      {/* Animated Background Orbs */}
+      <div className="fixed top-0 right-0 w-125 h-125 bg-linear-to-br from-purple-500 to-pink-500 rounded-full blur-[100px] opacity-[0.08] pointer-events-none animate-float" style={{ animationDelay: "0s" }} />
+      <div className="fixed bottom-0 left-0 w-125 h-125 bg-linear-to-br from-blue-500 to-purple-500 rounded-full blur-[100px] opacity-[0.08] pointer-events-none animate-float" style={{ animationDelay: "-10s" }} />
+
       {/* Animated Particle Background */}
       {mounted && (
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(20)].map((_, i) => (
             <div
               key={i}
@@ -84,9 +340,6 @@ export default function TimerPage() {
         </div>
       )}
 
-      {/* linear Mesh Background */}
-      <div className="absolute inset-0 bg-linear-to-br from-purple-500/5 via-transparent to-pink-500/5 dark:from-purple-500/5 dark:via-transparent dark:to-pink-500/5 animate-linear-shift" />
-
       {/* Content */}
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-12">
         {/* Header */}
@@ -96,9 +349,9 @@ export default function TimerPage() {
             <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Focus Mode</span>
           </div>
           <h1 className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-linear-to-r from-purple-600 via-pink-600 to-purple-600 dark:from-purple-400 dark:via-pink-400 dark:to-purple-400 mb-4">
-            WorkLogix
+            Timer
           </h1>
-          <p className="text-xl text-slate-600 dark:text-purple-200/80 max-w-2xl mx-auto">
+          <p className="text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
             Track your productivity with style. Every second counts towards your goals.
           </p>
         </div>
@@ -109,18 +362,20 @@ export default function TimerPage() {
             {/* Glow Effect */}
             <div
               className={`absolute inset-0 rounded-full blur-3xl transition-all duration-500 ${
-                isRunning && !isPaused
+                isRunning && !isOnBreak
                   ? "bg-purple-500/20 dark:bg-purple-500/30 scale-110"
                   : "bg-purple-500/0"
               }`}
             />
 
-            {/* Main Timer Circle */}
-            <div className="relative w-96 h-96 md:w-md md:h-112 mx-auto">
+            {/* Main Timer Circle Container */}
+            <div className="relative flex items-center justify-center gap-8">
+              {/* Main Timer Circle */}
+              <div className="relative w-96 h-96 md:w-md md:h-112 mx-auto">
               {/* Glow */}
               <div
                 className={`absolute inset-0 rounded-full blur-2xl transition-all duration-300 ${
-                  isRunning && !isPaused ? "bg-pink-500/10 dark:bg-pink-500/20" : ""
+                  isRunning && !isOnBreak ? "bg-pink-500/10 dark:bg-pink-500/20" : ""
                 }`}
               />
 
@@ -143,20 +398,20 @@ export default function TimerPage() {
                   cy="50"
                   r="48"
                   fill="none"
-                  stroke="url(#progresslinear)"
+                  stroke="url(#progressGradient)"
                   strokeWidth="2"
                   strokeDasharray={`${2 * Math.PI * 48}`}
                   strokeDashoffset={`${2 * Math.PI * 48 * (1 - progress / 100)}`}
                   className="transition-all duration-300 ease-out"
                   strokeLinecap="round"
                   style={{
-                    filter: isRunning && !isPaused ? "drop-shadow(0 0 8px rgba(236, 72, 153, 0.6))" : "",
+                    filter: isRunning && !isOnBreak ? "drop-shadow(0 0 8px rgba(236, 72, 153, 0.6))" : "",
                   }}
                 />
 
-                {/* Progress linear */}
+                {/* Progress Gradient */}
                 <defs>
-                  <linearGradient id="progresslinear" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#a855f7" stopOpacity="0.8" />
                     <stop offset="100%" stopColor="#ec4899" stopOpacity="1" />
                   </linearGradient>
@@ -170,7 +425,7 @@ export default function TimerPage() {
                   {/* Hours */}
                   <div
                     className={`text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-linear-to-br from-purple-600 to-pink-600 dark:from-purple-300 dark:to-pink-300 transition-all duration-200 ${
-                      isRunning && !isPaused ? "scale-110" : "scale-100"
+                      isRunning && !isOnBreak ? "scale-110" : "scale-100"
                     }`}
                   >
                     {String(hrs).padStart(2, "0")}
@@ -182,7 +437,7 @@ export default function TimerPage() {
                   {/* Minutes */}
                   <div
                     className={`text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-linear-to-br from-slate-800 to-slate-600 dark:from-white dark:to-slate-200 transition-all duration-200 ${
-                      isRunning && !isPaused ? "scale-110" : "scale-100"
+                      isRunning && !isOnBreak ? "scale-110" : "scale-100"
                     }`}
                   >
                     {String(mins).padStart(2, "0")}
@@ -194,15 +449,22 @@ export default function TimerPage() {
                   {/* Seconds */}
                   <div
                     className={`text-5xl md:text-6xl font-black bg-clip-text text-transparent bg-linear-to-br from-slate-800 to-pink-600 dark:from-white dark:to-pink-200 transition-all duration-200 ${
-                      isRunning && !isPaused ? "scale-110 animate-pulse" : "scale-100"
+                      isRunning && !isOnBreak ? "scale-110 animate-pulse" : "scale-100"
                     }`}
                   >
                     {String(secs).padStart(2, "0")}
                   </div>
                 </div>
 
+                {/* Status */}
+                {isOnBreak && (
+                  <div className="mt-2 px-3 py-1 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-full text-xs font-semibold">
+                    On Break
+                  </div>
+                )}
+
                 {/* Labels */}
-                <div className="flex items-center gap-4 text-xs text-purple-700/80 dark:text-purple-300/80 tracking-widest uppercase">
+                <div className="flex items-center gap-4 text-xs text-purple-700/80 dark:text-purple-300/80 tracking-widest uppercase mt-2">
                   <span>Hr</span>
                   <span>Min</span>
                   <span>Sec</span>
@@ -210,59 +472,155 @@ export default function TimerPage() {
               </div>
             </div>
 
-            {/* Decorative Corner Marks */}
-            <div className="absolute top-4 left-4 text-purple-300 dark:text-purple-500/30 text-4xl">{"{"}</div>
-            <div className="absolute top-4 right-4 text-purple-300 dark:text-purple-500/30 text-4xl">{"}"}</div>
-            <div className="absolute bottom-4 left-4 text-purple-300 dark:text-purple-500/30 text-4xl">{"{"}</div>
-            <div className="absolute bottom-4 right-4 text-purple-300 dark:text-purple-500/30 text-4xl">{"}"}</div>
+            {/* Mini Break Timer Circle - Shows when on break */}
+            {isOnBreak && (
+              <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-36 h-36 z-20">
+                {/* Debug: Make it very visible */}
+                <div className="absolute inset-0 rounded-full bg-amber-500/30 animate-pulse" />
+
+                {/* Break Glow */}
+                <div className="absolute inset-0 rounded-full blur-xl bg-amber-500/40 animate-pulse" />
+
+                {/* SVG Ring */}
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                  {/* Background Circle */}
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="46"
+                    fill="rgba(255, 255, 255, 0.95)"
+                    stroke="rgba(245, 158, 11, 0.3)"
+                    strokeWidth="2"
+                    className="dark:fill-[rgba(15,23,42,0.9)]"
+                  />
+
+                  {/* Progress Circle */}
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="46"
+                    fill="none"
+                    stroke="url(#breakGradient)"
+                    strokeWidth="2"
+                    strokeDasharray={`${2 * Math.PI * 46}`}
+                    strokeDashoffset={`${2 * Math.PI * 46 * (1 - (breakSeconds % 60) / 60)}`}
+                    className="transition-all duration-300 ease-out"
+                    strokeLinecap="round"
+                  />
+
+                  {/* Break Gradient */}
+                  <defs>
+                    <linearGradient id="breakGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#d97706" stopOpacity="1" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                {/* Break Time Display */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="text-2xl md:text-3xl font-bold text-amber-600 dark:text-amber-400">
+                    {String(Math.floor(breakSeconds / 60)).padStart(2, "0")}
+                  </div>
+                  <div className="text-[8px] md:text-[10px] text-amber-700 dark:text-amber-500 font-semibold uppercase tracking-wider">
+                    Break
+                  </div>
+                  <div className="text-xs md:text-sm text-amber-600 dark:text-amber-400 font-medium">
+                    {String(breakSeconds % 60).padStart(2, "0")}s
+                  </div>
+                </div>
+
+                {/* Connecting Line */}
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full">
+                  <div className="w-8 h-0.5 bg-linear-to-l from-amber-400 to-transparent opacity-50" />
+                </div>
+              </div>
+            )}
+            </div>
           </div>
         </div>
 
         {/* Controls */}
         <div className="flex items-center justify-center gap-6 mb-12 animate-fadeIn">
-          {!isRunning ? (
-            <button
-              onClick={handleStart}
-              disabled={!project}
-              className="group relative px-12 py-5 bg-linear-to-r from-purple-500 to-pink-500 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-purple-500/20 hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-            >
-              <span className="flex items-center gap-3 relative z-10">
-                <Play className="w-6 h-6" fill="currentColor" />
-                Start Tracking
-              </span>
-              <div className="absolute inset-0 rounded-2xl bg-linear-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-30 transition-opacity blur-md"></div>
-            </button>
-          ) : (
+          {isOnBreak ? (
             <>
-              {isPaused ? (
-                <button
-                  onClick={handleStart}
-                  className="group relative px-10 py-4 bg-linear-to-r from-violet-500 to-purple-500 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-violet-500/20 hover:scale-105 transition-all duration-300"
-                >
-                  <span className="flex items-center gap-2 relative z-10">
-                    <Play className="w-5 h-5" fill="currentColor" />
-                    Resume
-                  </span>
-                </button>
-              ) : (
-                <button
-                  onClick={handlePause}
-                  className="group relative px-10 py-4 bg-linear-to-r from-violet-500 to-indigo-500 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-violet-500/20 hover:scale-105 transition-all duration-300"
-                >
-                  <span className="flex items-center gap-2 relative z-10">
-                    <Pause className="w-5 h-5" fill="currentColor" />
-                    Pause
-                  </span>
-                </button>
-              )}
+              {/* Currently on break - show Resume button */}
+              <button
+                onClick={handleResume}
+                className="group relative px-10 py-4 bg-linear-to-r from-violet-500 to-purple-500 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-violet-500/20 hover:scale-105 transition-all duration-300"
+              >
+                <span className="flex items-center gap-2 relative z-10">
+                  <Play className="w-5 h-5" fill="currentColor" />
+                  Resume
+                </span>
+              </button>
               <button
                 onClick={handleStop}
                 className="group relative px-10 py-4 bg-linear-to-r from-rose-500 to-pink-600 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-rose-500/20 hover:scale-105 transition-all duration-300"
               >
                 <span className="flex items-center gap-2 relative z-10">
                   <Square className="w-5 h-5" fill="currentColor" />
-                  Stop
+                  Stop Timer
                 </span>
+              </button>
+            </>
+          ) : isRunning ? (
+            <>
+              {/* Timer is running - show Take Break and Stop Timer buttons */}
+              <button
+                onClick={handlePause}
+                className="group relative px-10 py-4 bg-linear-to-r from-violet-500 to-indigo-500 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-violet-500/20 hover:scale-105 transition-all duration-300"
+              >
+                <span className="flex items-center gap-2 relative z-10">
+                  <Pause className="w-5 h-5" fill="currentColor" />
+                  Take Break
+                </span>
+              </button>
+              <button
+                onClick={handleStop}
+                className="group relative px-10 py-4 bg-linear-to-r from-rose-500 to-pink-600 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-rose-500/20 hover:scale-105 transition-all duration-300"
+              >
+                <span className="flex items-center gap-2 relative z-10">
+                  <Square className="w-5 h-5" fill="currentColor" />
+                  Stop Timer
+                </span>
+              </button>
+            </>
+          ) : activeEntry ? (
+            <>
+              {/* Timer was stopped but not completed - can resume or complete */}
+              <button
+                onClick={handleStart}
+                className="group relative px-10 py-4 bg-linear-to-r from-violet-500 to-purple-500 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-violet-500/20 hover:scale-105 transition-all duration-300"
+              >
+                <span className="flex items-center gap-2 relative z-10">
+                  <Play className="w-5 h-5" fill="currentColor" />
+                  Resume
+                </span>
+              </button>
+              <button
+                onClick={handleComplete}
+                className="group relative px-10 py-4 bg-linear-to-r from-emerald-500 to-green-600 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-emerald-500/20 hover:scale-105 transition-all duration-300"
+              >
+                <span className="flex items-center gap-2 relative z-10">
+                  <Square className="w-5 h-5" fill="currentColor" />
+                  Complete
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              {/* No active timer - show Start button */}
+              <button
+                onClick={handleStart}
+                disabled={!selectedProjectId}
+                className="group relative px-12 py-5 bg-linear-to-r from-purple-500 to-pink-500 rounded-2xl font-bold text-lg text-white shadow-lg hover:shadow-purple-500/20 hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                <span className="flex items-center gap-3 relative z-10">
+                  <Play className="w-6 h-6" fill="currentColor" />
+                  Start Tracking
+                </span>
+                <div className="absolute inset-0 rounded-2xl bg-linear-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-30 transition-opacity blur-md"></div>
               </button>
             </>
           )}
@@ -274,37 +632,32 @@ export default function TimerPage() {
             Select Project
           </label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            {quickProjects.map((proj) => (
-              <button
-                key={proj.name}
-                onClick={() => setProject(proj.name)}
-                disabled={isRunning}
-                className={`group relative px-6 py-4 rounded-xl font-medium transition-all duration-300 ${
-                  project === proj.name
-                    ? "bg-linear-to-br from-purple-500/20 to-pink-500/20 border-2 border-purple-400 shadow-lg shadow-purple-500/20 scale-105"
-                    : "bg-white dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 hover:border-purple-500/50 hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                <span className="text-2xl mb-1 block">{proj.icon}</span>
-                <span className={`text-sm ${
-                  project === proj.name ? "text-purple-700 dark:text-purple-200" : "text-slate-600 dark:text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-300"
-                }`}>
-                  {proj.name}
-                </span>
-                {project === proj.name && (
-                  <div className="absolute inset-0 rounded-xl bg-linear-to-br from-purple-500 to-pink-500 opacity-10"></div>
-                )}
-              </button>
-            ))}
+            {projects.slice(0, 4).map((proj) => {
+              const { icon, color } = getProjectTypeIcon(proj.projectType);
+              return (
+                <button
+                  key={proj._id}
+                  onClick={() => setSelectedProjectId(proj._id)}
+                  disabled={isRunning}
+                  className={`group relative px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
+                    selectedProjectId === proj._id
+                      ? "bg-linear-to-br from-purple-500/20 to-pink-500/20 border-2 border-purple-400 shadow-lg shadow-purple-500/20 scale-105"
+                      : "bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-purple-500/50 hover:bg-slate-50 dark:hover:bg-white/10"
+                  } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <span className="text-xl mb-1 block">{icon}</span>
+                  <span className={`text-xs truncate ${
+                    selectedProjectId === proj._id ? "text-purple-700 dark:text-purple-200" : "text-slate-600 dark:text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-300"
+                  }`}>
+                    {proj.projectName}
+                  </span>
+                  {selectedProjectId === proj._id && (
+                    <div className="absolute inset-0 rounded-xl bg-linear-to-br from-purple-500 to-pink-500 opacity-10"></div>
+                  )}
+                </button>
+              );
+            })}
           </div>
-          <input
-            type="text"
-            value={project}
-            onChange={(e) => setProject(e.target.value)}
-            placeholder="Or enter a custom project name..."
-            disabled={isRunning}
-            className="w-full px-5 py-4 rounded-xl bg-white dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 font-medium"
-          />
         </div>
 
         {/* Task Input */}
@@ -314,154 +667,106 @@ export default function TimerPage() {
           </label>
           <input
             type="text"
-            value={task}
-            onChange={(e) => setTask(e.target.value)}
+            value={taskDescription}
+            onChange={(e) => setTaskDescription(e.target.value)}
             placeholder="e.g., Implementing user authentication feature"
             disabled={isRunning}
-            className="w-full px-5 py-4 rounded-xl bg-white dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 font-medium"
+            className="w-full px-5 py-4 rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 font-medium"
           />
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-4 mb-8 animate-fadeIn" style={{ animationDelay: "0.4s" }}>
-          <div className="bg-white dark:bg-slate-800/50 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-center shadow-sm dark:shadow-none">
+          <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-center shadow-sm dark:shadow-none">
             <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">{hrs.toString().padStart(2, "0")}</div>
             <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hours</div>
           </div>
-          <div className="bg-white dark:bg-slate-800/50 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-center shadow-sm dark:shadow-none">
+          <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-center shadow-sm dark:shadow-none">
             <div className="text-3xl font-bold text-pink-600 dark:text-pink-400 mb-1">{mins.toString().padStart(2, "0")}</div>
             <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Minutes</div>
           </div>
-          <div className="bg-white dark:bg-slate-800/50 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-center shadow-sm dark:shadow-none">
+          <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-center shadow-sm dark:shadow-none">
             <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">{secs.toString().padStart(2, "0")}</div>
             <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Seconds</div>
           </div>
         </div>
 
         {/* Recent Entries */}
-        <div className="bg-white dark:bg-slate-800/30 backdrop-blur border border-slate-200 dark:border-slate-700 rounded-2xl p-6 animate-fadeIn shadow-sm dark:shadow-none" style={{ animationDelay: "0.5s" }}>
+        <div className="bg-white dark:bg-white/5 backdrop-blur border border-slate-200 dark:border-white/10 rounded-2xl p-6 animate-fadeIn shadow-sm dark:shadow-none" style={{ animationDelay: "0.5s" }}>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Recent Entries</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">Your latest time tracking sessions</p>
             </div>
-            <button className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium transition-colors">
-              View All
-            </button>
           </div>
 
           <div className="space-y-3">
-            {/* Entry 1 */}
-            <div className="group flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:border-purple-500/50 transition-all duration-300">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-purple-500 to-purple-600 flex items-center justify-center text-xl">
-                ⚡
+            {recentEntries.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                No recent entries yet. Start tracking your time!
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-slate-900 dark:text-white font-medium truncate">Implemented dashboard charts</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">WorkLogix</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-purple-600 dark:text-purple-400">4h 32m</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Today</p>
-              </div>
-            </div>
+            ) : (
+              recentEntries.map((entry) => {
+                console.log("Rendering entry:", entry);
+                const project = getProjectById(entry.projectId);
+                const { icon, color } = getProjectTypeIcon(project?.projectType || "");
+                const duration = entry.duration || 0;
 
-            {/* Entry 2 */}
-            <div className="group flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:border-purple-500/50 transition-all duration-300">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center text-xl">
-                🌐
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-slate-900 dark:text-white font-medium truncate">Fixed responsive layout issues</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Client Website</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">2h 15m</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Today</p>
-              </div>
-            </div>
-
-            {/* Entry 3 */}
-            <div className="group flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:border-purple-500/50 transition-all duration-300">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-xl">
-                🔧
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-slate-900 dark:text-white font-medium truncate">API endpoint optimization</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">API Development</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">3h 45m</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Yesterday</p>
-              </div>
-            </div>
-
-            {/* Entry 4 */}
-            <div className="group flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:border-purple-500/50 transition-all duration-300">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-pink-500 to-pink-600 flex items-center justify-center text-xl">
-                📱
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-slate-900 dark:text-white font-medium truncate">Mobile app UI redesign</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Mobile App</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-pink-600 dark:text-pink-400">5h 20m</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Yesterday</p>
-              </div>
-            </div>
-
-            {/* Entry 5 */}
-            <div className="group flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 hover:border-purple-500/50 transition-all duration-300">
-              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-purple-500 to-purple-600 flex items-center justify-center text-xl">
-                ⚡
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-slate-900 dark:text-white font-medium truncate">Code review and refactoring</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">WorkLogix</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-purple-600 dark:text-purple-400">1h 50m</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">2 days ago</p>
-              </div>
-            </div>
+                return (
+                  <div key={entry._id} className="group flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-purple-500/50 transition-all duration-300">
+                    <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${color} flex items-center justify-center text-xl`}>
+                      {icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-900 dark:text-white font-medium truncate">{entry.description || "No description"}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{project?.projectName || "Unknown Project"}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{formatDuration(duration)}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">{formatDate(entry.endTime || entry.startTime)}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
 
       {/* Custom Animations */}
-      <style jsx>{`
-        @keyframes float-particle {
+      <style>{`
+        @keyframes float {
           0%,
           100% {
-            transform: translateY(0) translateX(0);
-            opacity: 0;
+            transform: translate(0, 0) scale(1);
           }
-          50% {
-            transform: translateY(-100px) translateX(50px);
-            opacity: 1;
+          33% {
+            transform: translate(30px, -30px) scale(1.05);
           }
-        }
-
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.8);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
+          66% {
+            transform: translate(-20px, 20px) scale(0.95);
           }
         }
 
         @keyframes slideIn {
           from {
             opacity: 0;
-            transform: translateY(-30px);
+            transform: translateY(-20px);
           }
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
           }
         }
 
@@ -474,47 +779,42 @@ export default function TimerPage() {
           }
         }
 
-        @keyframes gradient-shift {
+        @keyframes float-particle {
           0%,
           100% {
-            background-position: 0% 50%;
+            transform: translate(0, 0);
+            opacity: 0;
           }
-          50% {
-            background-position: 100% 50%;
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate(0, -100vh);
+            opacity: 0;
           }
         }
 
-        @keyframes expand {
-          from {
-            width: 0;
-          }
-          to {
-            width: 100%;
-          }
+        .animate-float {
+          animation: float 20s ease-in-out infinite;
         }
 
         .animate-float-particle {
-          animation: float-particle 10s ease-in-out infinite;
-        }
-
-        .animate-scaleIn {
-          animation: scaleIn 0.6s ease-out backwards;
+          animation: float-particle 15s ease-in-out infinite;
         }
 
         .animate-slideIn {
-          animation: slideIn 0.8s ease-out backwards;
+          animation: slideIn 0.6s ease-out;
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.6s ease-out 0.2s backwards;
         }
 
         .animate-fadeIn {
           animation: fadeIn 0.6s ease-out backwards;
-        }
-
-        .animate-gradient-shift {
-          animation: gradient-shift 8s ease-in-out infinite;
-        }
-
-        .animate-expand {
-          animation: expand 1.5s ease-out forwards;
         }
       `}</style>
     </div>

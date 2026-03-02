@@ -1,4 +1,8 @@
+import type { TimeEntry } from './timeEntry';
+
 export type ProjectStatus = 'active' | 'hold' | 'completed';
+
+export type ProjectType = 'api_development' | 'web_app' | 'mobile_app' | 'consulting' | 'website_redesign';
 
 export interface Project {
   _id: string;                    // MongoDB ObjectId
@@ -7,6 +11,7 @@ export interface Project {
   clientName: string;             // Client or company name
   hourlyRate: number;             // Hourly rate in currency
   description: string;            // Project description
+  projectType: ProjectType;       // Project type/category
   status: ProjectStatus;          // Current status
   createdAt: string;              // ISO date string
   updatedAt: string;              // ISO date string
@@ -17,6 +22,7 @@ export interface ProjectWithStats extends Project {
   totalHours?: number;            // Total hours tracked
   totalEarnings?: number;         // Total earnings (hours × rate)
   lastEntry?: string;             // Last work date
+  timeEntries?: any[];            // Time entries for this project (backend may include these)
 }
 
 export interface CreateProjectRequest {
@@ -24,6 +30,7 @@ export interface CreateProjectRequest {
   clientName: string;             // Required: Client name
   hourlyRate: number;             // Required: Hourly rate
   description: string;            // Required: Description
+  projectType: ProjectType;       // Required: Project type
 }
 
 export interface CreateProjectResponse {
@@ -36,6 +43,7 @@ export interface UpdateProjectRequest {
   clientName?: string;            // Optional: New client name
   hourlyRate?: number;            // Optional: New hourly rate
   description?: string;           // Optional: New description
+  projectType?: ProjectType;      // Optional: New project type
 }
 
 export interface ChangeProjectStatusRequest {
@@ -72,4 +80,4 @@ export interface ProjectActions {
 
 export type ProjectStore = ProjectState & ProjectActions;
 
-import type { TimeEntry } from './timeEntry';
+

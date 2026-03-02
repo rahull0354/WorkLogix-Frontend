@@ -18,6 +18,14 @@ export interface TimeEntry {
   breaks: Break[];                // Array of breaks taken
   createdAt: string;              // ISO date string - when entry was created
   updatedAt: string;              // ISO date string - last update time
+  totalTime?: number;             // Total time in minutes (backend field)
+  sessions?: Array<{              // Sessions array (backend field)
+    type: 'work' | 'break';       // Session type
+    startTime: string;            // When session started
+    endTime?: string;             // When session ended
+    duration: number;             // Session duration in seconds
+    _id: string;                  // Session ID
+  }>;
 }
 
 export interface TimeEntryWithDetails extends TimeEntry {
@@ -80,25 +88,14 @@ export interface TimerActions {
   resetTimer: () => void;
 }
 
-/**
- * Combined timer state and actions
- */
 export type TimerStore = TimerState & TimerActions;
 
-/**
- * Time entry list response
- * Could be returned from a list endpoint
- */
 export interface TimeEntriesListResponse {
   entries: TimeEntry[];           // Array of time entries
   total: number;                  // Total count
   totalHours: number;             // Total hours across all entries
 }
 
-/**
- * Time entry filters
- * Used for filtering time entries list
- */
 export interface TimeEntryFilters {
   projectId?: string;             // Filter by project
   status?: TimeEntryStatus;       // Filter by status
