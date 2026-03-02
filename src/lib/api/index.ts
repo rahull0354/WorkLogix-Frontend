@@ -1,8 +1,3 @@
-/**
- * Barrel export for all API services
- * Allows importing from '../api' instead of individual files
- */
-
 // Axios instance
 export { default as api } from './axios';
 

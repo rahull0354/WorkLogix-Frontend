@@ -24,11 +24,12 @@ export const getMyProjects = async (): Promise<Project[]> => {
 export const getProjectDetails = async (
   projectId: string,
 ): Promise<Project> => {
-  const response = await api.get<Project>(
+  const response = await api.get<any>(
     `/project/projectDetails/${projectId}`,
   );
 
-  return response.data;
+  // Backend returns: { message, success, projectDetails: {...} }
+  return response.data.projectDetails || response.data;
 };
 
 export const updateProject = async (

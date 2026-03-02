@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { TimeEntry, TimerStore } from "../types";
 import {
   applyBreak,
@@ -8,69 +9,83 @@ import {
   completeTimeEntry,
 } from "../api/timeEntry";
 
-export const useTimerStore = create<TimerStore>((set, get) => ({
-  activeEntry: null,
-  isRunning: false,
-  isOnBreak: false,
-  elapsedSeconds: 0,
-  lastUpdateTime: 0,
-
-  setActiveEntry: (entry: TimeEntry | null) => {
-    set({
-      activeEntry: entry,
-      isRunning: entry?.status === "running",
-      isOnBreak: entry?.status === "break",
-      elapsedSeconds: 0,
-      lastUpdateTime: Date.now(),
-    });
-  },
-
-  startTimer: (entry: TimeEntry) => {
-    set({
-      activeEntry: entry,
-      isRunning: true,
-      isOnBreak: false,
-      elapsedSeconds: 0,
-      lastUpdateTime: Date.now(),
-    });
-  },
-
-  stopTimer: () => {
-    set({
-      isRunning: false,
-      isOnBreak: false,
-    });
-  },
-
-  pauseTimer: () => {
-    set({
-      isRunning: false,
-      isOnBreak: true,
-    });
-  },
-
-  resumeTimer: () => {
-    set({
-      isRunning: true,
-      isOnBreak: false,
-      lastUpdateTime: Date.now(),
-    });
-  },
-
-  updateElapsedSeconds: (seconds: number) => {
-    set({ elapsedSeconds: seconds });
-  },
-
-  resetTimer: () => {
-    set({
+export const useTimerStore = create<TimerStore>()(
+  persist(
+    (set, get) => ({
       activeEntry: null,
       isRunning: false,
       isOnBreak: false,
       elapsedSeconds: 0,
       lastUpdateTime: 0,
-    });
-  },
-}));
+
+      setActiveEntry: (entry: TimeEntry | null) => {
+        set({
+          activeEntry: entry,
+          isRunning: entry?.status === "running",
+          isOnBreak: entry?.status === "break",
+          elapsedSeconds: 0,
+          lastUpdateTime: Date.now(),
+        });
+      },
+
+      startTimer: (entry: TimeEntry) => {
+        set({
+          activeEntry: entry,
+          isRunning: true,
+          isOnBreak: false,
+          elapsedSeconds: 0,
+          lastUpdateTime: Date.now(),
+        });
+      },
+
+      stopTimer: () => {
+        set({
+          isRunning: false,
+          isOnBreak: false,
+        });
+      },
+
+      pauseTimer: () => {
+        set({
+          isRunning: false,
+          isOnBreak: true,
+        });
+      },
+
+      resumeTimer: () => {
+        set({
+          isRunning: true,
+          isOnBreak: false,
+          lastUpdateTime: Date.now(),
+        });
+      },
+
+      updateElapsedSeconds: (seconds: number) => {
+        set({ elapsedSeconds: seconds });
+      },
+
+      resetTimer: () => {
+        set({
+          activeEntry: null,
+          isRunning: false,
+          isOnBreak: false,
+          elapsedSeconds: 0,
+          lastUpdateTime: 0,
+        });
+      },
+    }),
+    {
+      name: "timer-storage",
+      partialize: (state) => ({
+        activeEntry: state.activeEntry,
+        isRunning: state.isRunning,
+        isOnBreak: state.isOnBreak,
+        elapsedSeconds: state.elapsedSeconds,
+        lastUpdateTime: state.lastUpdateTime,
+      }),
+    }
+  )
+);
 
 export const startTimeEntryAction = async (
   projectId: string,
@@ -79,10 +94,24 @@ export const startTimeEntryAction = async (
   const { startTimer, stopTimer } = useTimerStore.getState();
 
   try {
+    console.log("startTimeEntryAction - Calling API with projectId:", projectId);
     const response = await startTimeEntry(projectId, { description });
+    console.log("startTimeEntryAction - API Response:", response);
+    console.log("startTimeEntryAction - response.entry:", response.entry);
+
     startTimer(response.entry);
+
+    // Verify the state after starting
+    const newState = useTimerStore.getState();
+    console.log("startTimeEntryAction - State after startTimer:", {
+      activeEntry: newState.activeEntry,
+      isRunning: newState.isRunning,
+    });
+
     return { success: true, entry: response.entry };
   } catch (error: any) {
+    console.error("startTimeEntryAction - Error:", error);
+    console.error("startTimeEntryAction - Error response:", error.response?.data);
     stopTimer();
     return {
       success: false,
@@ -92,7 +121,7 @@ export const startTimeEntryAction = async (
 };
 
 export const stopTimerAction = async () => {
-  const { activeEntry, resetTimer } = useTimerStore.getState();
+  const { activeEntry, stopTimer } = useTimerStore.getState();
 
   if (!activeEntry) {
     return { success: false, error: "No Active Timer" };
@@ -100,7 +129,10 @@ export const stopTimerAction = async () => {
 
   try {
     const response = await stopTimeEntry(activeEntry._id);
-    resetTimer();
+
+    // Stop the timer but keep the activeEntry for resume/complete
+    stopTimer();
+
     return { success: true, entry: response.entry };
   } catch (error: any) {
     return {
@@ -111,20 +143,32 @@ export const stopTimerAction = async () => {
 };
 
 export const takeBreakAction = async () => {
-  const { activeEntry, pauseTimer } = useTimerStore.getState();
+  const state = useTimerStore.getState();
+  console.log("takeBreakAction - Store state:", {
+    activeEntry: state.activeEntry,
+    isRunning: state.isRunning,
+    isOnBreak: state.isOnBreak,
+  });
+
+  const { activeEntry, pauseTimer } = state;
 
   if (!activeEntry) {
+    console.log("takeBreakAction - No active entry");
     return { success: false, error: "No active timer" };
   }
 
   try {
+    console.log("takeBreakAction - Calling applyBreak with ID:", activeEntry._id);
     const response = await applyBreak(activeEntry._id);
+    console.log("takeBreakAction - Response:", response);
     pauseTimer();
     return {
       success: true,
       entry: response.entry,
     };
   } catch (error: any) {
+    console.error("takeBreakAction - Error:", error);
+    console.error("takeBreakAction - Error response:", error.response?.data);
     return {
       success: false,
       error: error.response?.data?.message || "Failed to take break",
@@ -163,12 +207,69 @@ export const completeTimerAction = async () => {
 
   try {
     const response = await completeTimeEntry(activeEntry._id);
+    const completedEntry = response.entry;
+
     resetTimer();
-    return { success: true, entry: response.entry };
+    return { success: true, entry: completedEntry };
   } catch (error: any) {
     return {
       success: false,
       error: error.response?.data?.message || "Failed to complete timer",
+    };
+  }
+};
+
+export const fetchActiveTimeEntry = async () => {
+  try {
+    // These endpoints don't exist in the backend yet
+    // We'll rely entirely on persisted state from localStorage
+    // Just verify the stored state is valid
+    const state = useTimerStore.getState();
+
+    if (state.activeEntry && state.activeEntry._id) {
+      console.log("fetchActiveTimeEntry - Using persisted active entry:", state.activeEntry);
+      console.log("fetchActiveTimeEntry - Persisted state:", {
+        activeEntry: state.activeEntry,
+        isRunning: state.isRunning,
+        isOnBreak: state.isOnBreak,
+        elapsedSeconds: state.elapsedSeconds,
+      });
+
+      // Recalculate elapsed time from stored entry's start time
+      if (state.activeEntry.startTime) {
+        const startTime = new Date(state.activeEntry.startTime).getTime();
+        const now = Date.now();
+        let elapsed = Math.floor((now - startTime) / 1000);
+
+        // Subtract break durations
+        if (state.activeEntry.breaks && state.activeEntry.breaks.length > 0) {
+          state.activeEntry.breaks.forEach((breakItem) => {
+            if (breakItem.duration) {
+              elapsed -= breakItem.duration;
+            }
+          });
+        }
+
+        const finalElapsed = elapsed > 0 ? elapsed : 0;
+
+        // Update using the store method
+        const { updateElapsedSeconds } = useTimerStore.getState();
+        updateElapsedSeconds(finalElapsed);
+
+        console.log("fetchActiveTimeEntry - Recalculated elapsed time:", finalElapsed);
+      }
+
+      return { success: true, entry: state.activeEntry };
+    } else {
+      console.log("fetchActiveTimeEntry - No persisted active entry");
+      // Don't reset - just return the current state
+      return { success: true, entry: null };
+    }
+  } catch (error: any) {
+    console.error("fetchActiveTimeEntry - Error:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || "Failed to fetch active timer",
     };
   }
 };
