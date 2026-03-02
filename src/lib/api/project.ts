@@ -15,9 +15,10 @@ export const createProject = async (
   return response.data;
 };
 
-export const getMyProjects = async (): Promise<Project[]> => {
-  const response = await api.get<Project[]>("/project/myProjects");
+export const getMyProjects = async (): Promise<any> => {
+  const response = await api.get<any>("/project/myProjects");
 
+  // Backend returns: { message, success, findProjects: [...] }
   return response.data;
 };
 
