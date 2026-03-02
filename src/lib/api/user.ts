@@ -25,15 +25,16 @@ export const loginUser = async (credentials: LoginRequest): Promise<LoginRespons
 };
 
 export const getUserProfile = async (): Promise<User> => {
-  const response = await api.get<User>("/user/profile");
-  return response.data;
+  const response = await api.get<any>("/user/profile");
+
+  return response.data.user || response.data;
 };
 
 export const updateUser = async (
   userId: string,
   data: UpdateUserRequest,
 ): Promise<User> => {
-  const response = await api.put<User>(`/user/update/${userId}`, data);
+  const response = await api.patch<User>(`/user/update`, data);
 
   return response.data;
 };
