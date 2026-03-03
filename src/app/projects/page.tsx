@@ -116,7 +116,8 @@ const getEntryDuration = (entry: any): number => {
   ) {
     const workSessions = entry.sessions.filter((s: any) => s.type === "work");
     const totalFromSessions = workSessions.reduce((acc: number, s: any) => {
-      return acc + (s.duration || 0);
+      // Session duration is stored in MINUTES, convert to seconds
+      return acc + ((s.duration || 0) * 60);
     }, 0);
 
     if (totalFromSessions > 0) {

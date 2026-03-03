@@ -1,8 +1,13 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { getMyProjects, getTimeEntriesByProject } from "@/lib/api";
+import { getAllTimeEntries } from "@/lib/api/timeEntry";
+import { Project, ProjectType } from "@/lib/types";
+import { TimeEntry } from "@/lib/types/timeEntry";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import {
   Clock,
   TrendingUp,
@@ -18,6 +23,8 @@ import {
   Timer,
   ArrowUpRight,
   MoreHorizontal,
+  Building2,
+  Trash2,
 } from "lucide-react";
 import {
   LineChart,
@@ -35,58 +42,80 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Mock data for demonstration
-const weeklyHoursData = [
-  { day: "Mon", hours: 6.5, productivity: 85 },
-  { day: "Tue", hours: 7.2, productivity: 92 },
-  { day: "Wed", hours: 5.8, productivity: 78 },
-  { day: "Thu", hours: 8.1, productivity: 95 },
-  { day: "Fri", hours: 7.5, productivity: 88 },
-  { day: "Sat", hours: 3.2, productivity: 70 },
-  { day: "Sun", hours: 2.1, productivity: 65 },
+const projectTypeOptions: { value: ProjectType; label: string; color: string }[] = [
+  { value: "api_development", label: "API Development", color: "#7c3aed" },
+  { value: "web_app", label: "Web App", color: "#3b82f6" },
+  { value: "mobile_app", label: "Mobile App", color: "#10b981" },
+  { value: "consulting", label: "Consulting", color: "#ec4899" },
+  { value: "website_redesign", label: "Website Redesign", color: "#f59e0b" },
 ];
 
-const projectDistributionData = [
-  { name: "Web App", value: 35, color: "#7c3aed" },
-  { name: "Mobile App", value: 28, color: "#3b82f6" },
-  { name: "API Dev", value: 22, color: "#10b981" },
-  { name: "Consulting", value: 15, color: "#ec4899" },
-];
+/**
+ * Helper function to get duration in seconds from a time entry
+ */
+const getEntryDuration = (entry: any): number => {
+  if (entry.duration && entry.duration > 0) return entry.duration;
+  if (entry.totalTime && entry.totalTime > 0) return entry.totalTime * 60;
+  if (entry.sessions && Array.isArray(entry.sessions) && entry.sessions.length > 0) {
+    const workSessions = entry.sessions.filter((s: any) => s.type === "work");
+    const totalFromSessions = workSessions.reduce((acc: number, s: any) => {
+      // Session duration is stored in MINUTES, convert to seconds
+      return acc + ((s.duration || 0) * 60);
+    }, 0);
+    if (totalFromSessions > 0) return totalFromSessions;
+  }
+  if (entry.startTime && entry.endTime) {
+    try {
+      const start = new Date(entry.startTime);
+      const end = new Date(entry.endTime);
+      return (end.getTime() - start.getTime()) / 1000;
+    } catch {
+      // Silent fail
+    }
+  }
+  return 0;
+};
 
-const recentActivities = [
-  {
-    id: 1,
-    type: "time",
-    title: "Worked on WorkLogix Dashboard",
-    project: "WorkLogix",
-    duration: "4h 32m",
-    time: "2 hours ago",
-  },
-  {
-    id: 2,
-    type: "project",
-    title: "Created new project",
-    project: "E-commerce API",
-    duration: null,
-    time: "5 hours ago",
-  },
-  {
-    id: 3,
-    type: "time",
-    title: "Fixed authentication bug",
-    project: "Client Portal",
-    duration: "2h 15m",
-    time: "Yesterday",
-  },
-  {
-    id: 4,
-    type: "time",
-    title: "Code review & optimization",
-    project: "Mobile App",
-    duration: "3h 45m",
-    time: "Yesterday",
-  },
-];
+/**
+ * Format duration in seconds to human readable format
+ */
+const formatDuration = (seconds: number): string => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  if (minutes > 0) return `${minutes}m`;
+  return "0m";
+};
+
+/**
+ * Get relative time string
+ */
+const getRelativeTime = (dateString: string): string => {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString();
+};
+
+interface Activity {
+  id: string;
+  type: "time" | "project_created" | "project_deleted";
+  title: string;
+  project: string;
+  duration?: string;
+  time: string;
+  timestamp: number;
+}
 
 const StatCard = ({
   icon: Icon,
@@ -236,13 +265,16 @@ const ActionButton = ({
   icon: Icon,
   label,
   delay,
+  href,
 }: {
   icon: any;
   label: string;
   delay: number;
+  href: string;
 }) => (
   <button
-    className="group flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl transition-all duration-300 hover:border-purple-400 hover:border-solid hover:bg-linear-to-br hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-500/10 dark:hover:to-pink-500/10 hover:-translate-y-1"
+    onClick={() => (window.location.href = href)}
+    className="group flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl transition-all duration-300 hover:border-purple-400 hover:border-solid hover:bg-linear-to-br hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-500/10 dark:hover:to-pink-500/10 hover:-translate-y-1 cursor-pointer"
     style={{
       animation: `fadeInUp 0.6s ease-out ${delay}s backwards`,
     }}
@@ -260,6 +292,17 @@ export default function DashboardPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [weeklyHoursData, setWeeklyHoursData] = useState<Array<{ day: string; hours: number }>>([]);
+  const [projectDistributionData, setProjectDistributionData] = useState<Array<{ name: string; value: number; color: string }>>([]);
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+
+  // Stats
+  const [totalHours, setTotalHours] = useState(0);
+  const [activeProjects, setActiveProjects] = useState(0);
+  const [weeklyGoal, setWeeklyGoal] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -271,9 +314,148 @@ export default function DashboardPage() {
     }
   }, [user, isLoading, router]);
 
-  if (!mounted || isLoading) {
+  useEffect(() => {
+    if (user && mounted) {
+      fetchDashboardData();
+    }
+  }, [user, mounted]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch projects
+      const projectsResponse: any = await getMyProjects();
+      let projectsData: Project[] = [];
+      if (Array.isArray(projectsResponse)) {
+        projectsData = projectsResponse;
+      } else if (projectsResponse?.findProjects && Array.isArray(projectsResponse.findProjects)) {
+        projectsData = projectsResponse.findProjects;
+      } else if (projectsResponse?.projects && Array.isArray(projectsResponse.projects)) {
+        projectsData = projectsResponse.projects;
+      }
+      setProjects(projectsData);
+
+      // Count active projects
+      const activeCount = projectsData.filter((p: Project) => p.status === "active").length;
+      setActiveProjects(activeCount);
+
+      // Fetch time entries (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const entriesResponse = await getAllTimeEntries({ limit: 100, status: "completed" });
+      const entries = entriesResponse.entries || [];
+      setTimeEntries(entries);
+
+      // Calculate total hours
+      const totalSeconds = entries.reduce((acc: number, entry: TimeEntry) => acc + getEntryDuration(entry), 0);
+      const hours = totalSeconds / 3600;
+      setTotalHours(hours);
+
+      // Calculate weekly hours (last 7 days)
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const weeklyData: Array<{ day: string; hours: number }> = [];
+      const today = new Date();
+
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dayName = days[date.getDay()];
+
+        const dayEntries = entries.filter((entry: TimeEntry) => {
+          const entryDate = new Date(entry.startTime);
+          return (
+            entryDate.getDate() === date.getDate() &&
+            entryDate.getMonth() === date.getMonth() &&
+            entryDate.getFullYear() === date.getFullYear()
+          );
+        });
+
+        const dayHours = dayEntries.reduce((acc: number, entry: TimeEntry) => acc + getEntryDuration(entry), 0) / 3600;
+        weeklyData.push({ day: dayName, hours: Math.round(dayHours * 10) / 10 });
+      }
+      setWeeklyHoursData(weeklyData);
+
+      // Calculate weekly goal (last 7 days / 40 hours target * 100)
+      const last7DaysHours = weeklyData.reduce((acc, day) => acc + day.hours, 0);
+      const goalPercentage = Math.min(Math.round((last7DaysHours / 40) * 100), 100);
+      setWeeklyGoal(goalPercentage);
+
+      // Calculate project distribution
+      const projectMap = new Map<string, number>();
+
+      for (const project of projectsData) {
+        try {
+          const projectEntries = await getTimeEntriesByProject(project._id);
+          const entries = projectEntries.entries || [];
+          const hours = entries.reduce((acc: number, entry: any) => acc + getEntryDuration(entry), 0) / 3600;
+
+          if (hours > 0) {
+            const typeInfo = projectTypeOptions.find(opt => opt.value === project.projectType);
+            const label = typeInfo?.label || "Other";
+            const currentHours = projectMap.get(label) || 0;
+            projectMap.set(label, currentHours + hours);
+          }
+        } catch {
+          // Skip if failed to fetch entries for project
+        }
+      }
+
+      const distributionData = Array.from(projectMap.entries()).map(([name, hours]) => {
+        const typeInfo = projectTypeOptions.find(opt => opt.label === name);
+        return {
+          name,
+          value: Math.round(hours * 10) / 10,
+          color: typeInfo?.color || "#7c3aed"
+        };
+      }).sort((a, b) => b.value - a.value).slice(0, 5); // Top 5 projects
+
+      setProjectDistributionData(distributionData);
+
+      // Prepare activities from time entries
+      const timeActivities: Activity[] = entries.slice(0, 20).map((entry: TimeEntry) => {
+        const project = projectsData.find(p => p._id === entry.projectId);
+        return {
+          id: entry._id,
+          type: "time" as const,
+          title: entry.description || "Time entry",
+          project: project?.projectName || "Unknown Project",
+          duration: formatDuration(getEntryDuration(entry)),
+          time: getRelativeTime(entry.createdAt),
+          timestamp: new Date(entry.createdAt).getTime()
+        };
+      });
+
+      // Prepare activities from project creation
+      const projectActivities: Activity[] = projectsData.slice(0, 20).map((project: Project) => {
+        return {
+          id: `project-${project._id}`,
+          type: "project_created" as const,
+          title: `Created project "${project.projectName}"`,
+          project: project.projectName,
+          time: getRelativeTime(project.createdAt),
+          timestamp: new Date(project.createdAt).getTime()
+        };
+      });
+
+      // Merge and sort by timestamp (most recent first)
+      const allActivities = [...timeActivities, ...projectActivities]
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 10); // Show top 10 activities
+
+      setRecentActivities(allActivities);
+
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!mounted || isLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black">
         <div className="flex items-center gap-2">
           <div
             className="w-3 h-3 bg-purple-500 rounded-full animate-bounce"
@@ -330,8 +512,8 @@ export default function DashboardPage() {
           <StatCard
             icon={Clock}
             label="Hours Tracked"
-            value="40.5h"
-            change="+12.5%"
+            value={`${totalHours.toFixed(1)}h`}
+            change="Last 30 days"
             changeType="positive"
             color="purple"
             delay={0.1}
@@ -339,8 +521,8 @@ export default function DashboardPage() {
           <StatCard
             icon={Briefcase}
             label="Active Projects"
-            value="8"
-            change="+2 this week"
+            value={activeProjects.toString()}
+            change={`of ${projects.length} total`}
             changeType="positive"
             color="blue"
             delay={0.2}
@@ -348,17 +530,17 @@ export default function DashboardPage() {
           <StatCard
             icon={Target}
             label="Weekly Goal"
-            value="81%"
-            change="+8.3%"
+            value={`${weeklyGoal}%`}
+            change="40h target"
             changeType="positive"
             color="green"
             delay={0.3}
           />
           <StatCard
-            icon={Zap}
-            label="Productivity"
-            value="92"
-            change="+5.2%"
+            icon={Activity}
+            label="Total Entries"
+            value={timeEntries.length.toString()}
+            change="All time"
             changeType="positive"
             color="pink"
             delay={0.4}
@@ -396,12 +578,26 @@ export default function DashboardPage() {
                   axisLine={false}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(15, 23, 42, 0.9)",
-                    border: "none",
-                    borderRadius: "8px",
-                    color: "#fff",
+                  content={({ active, payload, label }: any) => {
+                    if (active && payload && payload.length) {
+                      const value = payload[0].value;
+                      return (
+                        <div className="bg-white dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 shadow-xl">
+                          <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {label}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-purple-500" />
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              {value}h
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
                   }}
+                  cursor={{ stroke: "#7c3aed", strokeWidth: 2, strokeDasharray: "3 3" }}
                 />
                 <Legend />
                 <Line
@@ -426,8 +622,8 @@ export default function DashboardPage() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
+                  label={(props: any) =>
+                    `${props.name || ''} ${props.percent ? (props.percent * 100).toFixed(0) : 0}%`
                   }
                   outerRadius={80}
                   fill="#8884d8"
@@ -438,12 +634,29 @@ export default function DashboardPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(15, 23, 42, 0.9)",
-                    border: "none",
-                    borderRadius: "8px",
-                    color: "#fff",
+                  content={({ active, payload }: any) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-white dark:bg-slate-800/95 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 shadow-xl">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: data.color }}
+                            />
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                              {data.name}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-600 dark:text-slate-400">
+                            {data.value} hours tracked
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
                   }}
+                  cursor={{ opacity: 0.3 }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -452,10 +665,10 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <ActionButton icon={Play} label="Start Timer" delay={0.1} />
-          <ActionButton icon={Plus} label="New Project" delay={0.2} />
-          <ActionButton icon={Calendar} label="View Reports" delay={0.3} />
-          <ActionButton icon={BarChart3} label="Analytics" delay={0.4} />
+          <ActionButton icon={Play} label="Start Timer" delay={0.1} href="/timer" />
+          <ActionButton icon={Plus} label="New Project" delay={0.2} href="/projects" />
+          <ActionButton icon={Calendar} label="View Reports" delay={0.3} href="/reports" />
+          <ActionButton icon={BarChart3} label="Analytics" delay={0.4} href="/time-entries" />
         </div>
 
         {/* Recent Activity */}
@@ -465,30 +678,62 @@ export default function DashboardPage() {
               Recent Activity
             </h3>
             <a
-              href="#"
+              href="/time-entries"
               className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium"
             >
               View all
             </a>
           </div>
 
-          <div className="space-y-2">
-            {recentActivities.map((activity) => (
-              <ActivityItem
-                key={activity.id}
-                icon={activity.type === "time" ? Timer : Briefcase}
-                title={activity.title}
-                project={activity.project}
-                duration={activity.duration}
-                time={activity.time}
-                color={
-                  activity.type === "time"
-                    ? "from-purple-500 to-purple-600"
-                    : "from-blue-500 to-blue-600"
-                }
-              />
-            ))}
-          </div>
+          {recentActivities.length === 0 ? (
+            <div className="text-center py-8">
+              <Timer className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-500 dark:text-slate-400">No recent activity</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500">Start tracking time to see activity here</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {recentActivities.map((activity) => {
+                const getIcon = () => {
+                  switch (activity.type) {
+                    case "time":
+                      return Timer;
+                    case "project_created":
+                      return Plus;
+                    case "project_deleted":
+                      return Trash2;
+                    default:
+                      return Timer;
+                  }
+                };
+
+                const getColor = () => {
+                  switch (activity.type) {
+                    case "time":
+                      return "from-purple-500 to-purple-600";
+                    case "project_created":
+                      return "from-emerald-500 to-emerald-600";
+                    case "project_deleted":
+                      return "from-red-500 to-red-600";
+                    default:
+                      return "from-purple-500 to-purple-600";
+                  }
+                };
+
+                return (
+                  <ActivityItem
+                    key={activity.id}
+                    icon={getIcon()}
+                    title={activity.title}
+                    project={activity.project}
+                    duration={activity.duration}
+                    time={activity.time}
+                    color={getColor()}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

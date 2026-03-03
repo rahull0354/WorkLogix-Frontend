@@ -294,22 +294,55 @@ export default function ReportsPage() {
   };
 
   const getEntryDuration = (entry: any): number => {
-    if (entry.duration && entry.duration > 0) return entry.duration;
-    if (entry.totalTime && entry.totalTime > 0) return entry.totalTime * 60;
-    if (entry.sessions && Array.isArray(entry.sessions)) {
+    // Priority 1: Try the duration field (in seconds)
+    if (entry.duration && entry.duration > 0) {
+      return entry.duration;
+    }
+
+    // Priority 2: Check totalTime field (might be in minutes)
+    if (entry.totalTime && entry.totalTime > 0) {
+      return entry.totalTime * 60;
+    }
+
+    // Priority 3: Sum work sessions from sessions array (session duration is in MINUTES)
+    if (
+      entry.sessions &&
+      Array.isArray(entry.sessions) &&
+      entry.sessions.length > 0
+    ) {
       const workSessions = entry.sessions.filter((s: any) => s.type === "work");
-      return workSessions.reduce(
-        (acc: number, s: any) => acc + (s.duration || 0),
-        0,
-      );
+      const totalFromSessions = workSessions.reduce((acc: number, s: any) => {
+        // Session duration is stored in MINUTES, convert to seconds
+        return acc + ((s.duration || 0) * 60);
+      }, 0);
+
+      if (totalFromSessions > 0) {
+        return totalFromSessions;
+      }
     }
+
+    // Priority 4: Calculate from timestamps
     if (entry.startTime && entry.endTime) {
-      return (
-        (new Date(entry.endTime).getTime() -
-          new Date(entry.startTime).getTime()) /
-        1000
-      );
+      try {
+        const start = new Date(entry.startTime);
+        const end = new Date(entry.endTime);
+        return (end.getTime() - start.getTime()) / 1000;
+      } catch {
+        // Silent fail
+      }
     }
+
+    // Priority 5: For running entries, calculate from startTime to now
+    if (entry.startTime && !entry.endTime) {
+      try {
+        const start = new Date(entry.startTime);
+        const now = new Date();
+        return (now.getTime() - start.getTime()) / 1000;
+      } catch {
+        // Silent fail
+      }
+    }
+
     return 0;
   };
 
