@@ -325,7 +325,7 @@ export default function ProfilePage() {
                       {initials}
                     </span>
                   </div>
-                  <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center shadow-lg animate-bounce-gentle">
+                  <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-linear-to-br from-emerald-400 to-emerald-500 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center shadow-lg animate-bounce-gentle">
                     <Sparkles className="w-5 h-5 text-white" />
                   </div>
                 </div>

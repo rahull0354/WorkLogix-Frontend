@@ -4,14 +4,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from './ThemeProvider';
 import { useAuth } from '@/contexts/AuthContext';
-import { Moon, Sun, Clock, Menu, X, LogOut, User } from 'lucide-react';
-import { useState } from 'react';
+import { Moon, Sun, Clock, Menu, X, LogOut, User, Settings, ChevronDown } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { user, isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Clock },
@@ -26,14 +28,38 @@ export function Header() {
   const handleLogout = () => {
     logout();
     setMobileMenuOpen(false);
+    setUserMenuOpen(false);
   };
+
+  // Get user initial from email or name
+  const getUserInitial = () => {
+    if (user?.username) {
+      return user.username.charAt(0).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-base-100/80 border-b border-base-300">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          
+
           <Link href="/" className="flex items-center gap-3 group">
             <div className="relative">
               <div className="absolute inset-0 bg-linear-to-r from-primary to-secondary rounded-lg blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
@@ -83,18 +109,62 @@ export function Header() {
               )}
             </button>
 
-            {/* Profile Menu (Desktop) */}
-
+            {/* User Avatar Dropdown */}
             {isAuthenticated && (
-              <div className="hidden md:flex items-center gap-2">
-                <Link href="/profile" className="btn btn-ghost btn-sm gap-2">
-                  <User className="header-icon w-4 h-4" />
-                  <span className="header-button-text hidden lg:inline">Profile</span>
-                </Link>
-                <button onClick={handleLogout} className="btn btn-ghost btn-sm gap-2 text-error hover:bg-error/10">
-                  <LogOut className="header-icon w-4 h-4" />
-                  <span className="header-button-text hidden lg:inline">Logout</span>
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 btn btn-ghost btn-sm hover:bg-base-200"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-sm shadow-md">
+                    {getUserInitial()}
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
+
+                {/* Dropdown Menu */}
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-base-100 rounded-xl shadow-lg border border-base-300 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-base-300">
+                      <p className="text-sm font-semibold text-base-content">
+                        {user?.username || 'User'}
+                      </p>
+                      <p className="text-xs text-base-content/60 truncate">
+                        {user?.email}
+                      </p>
+                    </div>
+
+                    <div className="py-2">
+                      <Link
+                        href="/profile"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-base-content hover:bg-base-200 transition-colors"
+                      >
+                        <User className="w-4 h-4" />
+                        <span>Profile</span>
+                      </Link>
+
+                      <Link
+                        href="/settings"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-base-content hover:bg-base-200 transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                        <span>Settings</span>
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-base-300 pt-2">
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 w-full px-4 py-2 text-sm text-error hover:bg-error/10 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -138,6 +208,13 @@ export function Header() {
                     className="px-4 py-3 rounded-lg font-medium text-sm text-base-content/70 hover:text-base-content hover:bg-base-200"
                   >
                     Profile
+                  </Link>
+                  <Link
+                    href="/settings"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-lg font-medium text-sm text-base-content/70 hover:text-base-content hover:bg-base-200"
+                  >
+                    Settings
                   </Link>
                   <button
                     onClick={handleLogout}
