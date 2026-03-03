@@ -84,7 +84,7 @@ export default function register() {
         fullname: formData.fullname,
       });
     } catch (error) {
-      console.error("Registration Failed:", error);
+      // Error is handled by the toast
     }
   };
   return (

@@ -11,6 +11,8 @@ import {
 import { Project, ProjectWithStats, ProjectType } from "@/lib/types";
 import {
   Building2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   DollarSign,
   Edit2,
@@ -107,8 +109,12 @@ const getEntryDuration = (entry: any): number => {
   }
 
   // Priority 3: Sum work sessions from sessions array
-  if (entry.sessions && Array.isArray(entry.sessions) && entry.sessions.length > 0) {
-    const workSessions = entry.sessions.filter((s: any) => s.type === 'work');
+  if (
+    entry.sessions &&
+    Array.isArray(entry.sessions) &&
+    entry.sessions.length > 0
+  ) {
+    const workSessions = entry.sessions.filter((s: any) => s.type === "work");
     const totalFromSessions = workSessions.reduce((acc: number, s: any) => {
       return acc + (s.duration || 0);
     }, 0);
@@ -141,6 +147,8 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
   const [formData, setFormData] = useState({
     projectName: "",
     clientName: "",
@@ -154,6 +162,11 @@ export default function ProjectsPage() {
     fetchProjects();
   }, []);
 
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   const fetchProjects = async () => {
     try {
       setLoading(true);
@@ -163,13 +176,19 @@ export default function ProjectsPage() {
 
       if (Array.isArray(response)) {
         data = response;
-      } else if (response?.findProjects && Array.isArray(response.findProjects)) {
+      } else if (
+        response?.findProjects &&
+        Array.isArray(response.findProjects)
+      ) {
         data = response.findProjects;
       } else if (response?.projects && Array.isArray(response.projects)) {
         data = response.projects;
       } else if (response?.data && Array.isArray(response.data)) {
         data = response.data;
-      } else if (response?.data?.projects && Array.isArray(response.data.projects)) {
+      } else if (
+        response?.data?.projects &&
+        Array.isArray(response.data.projects)
+      ) {
         data = response.data.projects;
       }
 
@@ -203,7 +222,7 @@ export default function ProjectsPage() {
               totalEntries: 0,
             } as ProjectWithStats;
           }
-        })
+        }),
       );
 
       setProjects(projectsWithStats);
@@ -229,11 +248,11 @@ export default function ProjectsPage() {
   const handleEdit = (project: Project) => {
     setEditingProject(project);
     setFormData({
-      projectName: project.projectName || '',
-      clientName: project.clientName || '',
+      projectName: project.projectName || "",
+      clientName: project.clientName || "",
       hourlyRate: (project.hourlyRate || 0).toString(),
-      description: project.description || '',
-      projectType: project.projectType || 'web_app',
+      description: project.description || "",
+      projectType: project.projectType || "web_app",
     });
     setShowModal(true);
   };
@@ -243,6 +262,27 @@ export default function ProjectsPage() {
       try {
         await deleteProject(id);
         toast.success("Project Deleted Successfully!");
+
+        // Calculate if we need to go back to previous page
+        const filteredProjects = projects.filter(Boolean).filter((project) => {
+          if (!searchQuery) return true;
+          const query = searchQuery.toLowerCase();
+          return (
+            project?.projectName?.toLowerCase().includes(query) ||
+            project?.clientName?.toLowerCase().includes(query) ||
+            project?.description?.toLowerCase().includes(query) ||
+            projectTypeOptions.find((opt) => opt.value === project?.projectType)?.label?.toLowerCase().includes(query)
+          );
+        });
+
+        const remainingProjects = filteredProjects.filter((p) => p._id !== id);
+        const totalPages = Math.ceil(remainingProjects.length / itemsPerPage);
+
+        // If current page would be empty after deletion, go to previous page
+        if (currentPage > totalPages && totalPages > 0) {
+          setCurrentPage(totalPages);
+        }
+
         setProjects(projects.filter((p) => p._id !== id));
       } catch (error: any) {
         toast.error(
@@ -280,7 +320,10 @@ export default function ProjectsPage() {
       };
 
       if (editingProject) {
-        const response: any = await updateProject(editingProject._id, projectData);
+        const response: any = await updateProject(
+          editingProject._id,
+          projectData,
+        );
 
         toast.success("Project Updated Successfully!");
         await fetchProjects();
@@ -396,7 +439,9 @@ export default function ProjectsPage() {
                 </p>
                 <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
                   {(Array.isArray(projects)
-                    ? projects.filter(Boolean).reduce((acc, p) => acc + (p?.totalHours || 0), 0)
+                    ? projects
+                        .filter(Boolean)
+                        .reduce((acc, p) => acc + (p?.totalHours || 0), 0)
                     : 0
                   ).toFixed(1)}
                   h
@@ -422,7 +467,9 @@ export default function ProjectsPage() {
                 <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
                   $
                   {(Array.isArray(projects)
-                    ? projects.filter(Boolean).reduce((acc, p) => acc + (p?.totalEarnings || 0), 0)
+                    ? projects
+                        .filter(Boolean)
+                        .reduce((acc, p) => acc + (p?.totalEarnings || 0), 0)
                     : 0
                   ).toFixed(2)}
                 </h3>
@@ -432,7 +479,10 @@ export default function ProjectsPage() {
         </div>
 
         {/* Create Button & Search */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8" style={{ animation: "fadeInUp 0.6s ease-out 0.4s backwards" }}>
+        <div
+          className="flex flex-col sm:flex-row gap-4 mb-8"
+          style={{ animation: "fadeInUp 0.6s ease-out 0.4s backwards" }}
+        >
           <button
             onClick={handleCreate}
             className="group flex items-center gap-2.5 px-5 py-3 bg-linear-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl font-semibold text-white shadow-lg hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] text-sm"
@@ -486,22 +536,39 @@ export default function ProjectsPage() {
           <>
             {/* Filtered projects */}
             {(() => {
-              const filteredProjects = projects.filter(Boolean).filter((project) => {
-                if (!searchQuery) return true;
-                const query = searchQuery.toLowerCase();
-                return (
-                  project?.projectName?.toLowerCase().includes(query) ||
-                  project?.clientName?.toLowerCase().includes(query) ||
-                  project?.description?.toLowerCase().includes(query) ||
-                  projectTypeOptions.find(opt => opt.value === project?.projectType)?.label?.toLowerCase().includes(query)
+              const filteredProjects = projects
+                .filter(Boolean)
+                .filter((project) => {
+                  if (!searchQuery) return true;
+                  const query = searchQuery.toLowerCase();
+                  return (
+                    project?.projectName?.toLowerCase().includes(query) ||
+                    project?.clientName?.toLowerCase().includes(query) ||
+                    project?.description?.toLowerCase().includes(query) ||
+                    projectTypeOptions
+                      .find((opt) => opt.value === project?.projectType)
+                      ?.label?.toLowerCase()
+                      .includes(query)
+                  );
+                });
+
+              // Reset to page 1 when search changes
+              if (searchQuery !== "" && currentPage > 1) {
+                const maxPage = Math.ceil(
+                  filteredProjects.length / itemsPerPage,
                 );
-              });
+                if (currentPage > maxPage && maxPage > 0) {
+                  setCurrentPage(1);
+                }
+              }
 
               if (filteredProjects.length === 0 && searchQuery) {
                 return (
                   <div
                     className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-16 text-center"
-                    style={{ animation: "fadeInUp 0.6s ease-out 0.5s backwards" }}
+                    style={{
+                      animation: "fadeInUp 0.6s ease-out 0.5s backwards",
+                    }}
                   >
                     <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-6">
                       <Search className="w-10 h-10 text-slate-400" />
@@ -516,149 +583,306 @@ export default function ProjectsPage() {
                 );
               }
 
+              // Pagination logic
+              const totalPages = Math.ceil(
+                filteredProjects.length / itemsPerPage,
+              );
+              const startIndex = (currentPage - 1) * itemsPerPage;
+              const endIndex = startIndex + itemsPerPage;
+              const paginatedProjects = filteredProjects.slice(
+                startIndex,
+                endIndex,
+              );
+
               return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProjects.map((project, index) => {
-              const statusInfo = getStatusInfo(project?.status || 'active');
-              return (
-                <div
-                  key={project._id || index}
-                  onClick={() => handleViewProject(project._id!)}
-                  className="group relative bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10 hover:-translate-y-1 hover:border-purple-200 dark:hover:border-purple-500/30 cursor-pointer"
-                  style={{ animation: `fadeInUp 0.6s ease-out ${0.5 + index * 0.1}s backwards` }}
-                >
-                  {/* Gradient Top Border */}
-                  <div className={`absolute top-0 left-0 right-0 h-1 bg-linear-to-r ${statusInfo.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`} />
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {paginatedProjects.map((project, index) => {
+                      const statusInfo = getStatusInfo(
+                        project?.status || "active",
+                      );
+                      return (
+                        <div
+                          key={project._id || index}
+                          onClick={() => handleViewProject(project._id!)}
+                          className="group relative bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10 hover:-translate-y-1 hover:border-purple-200 dark:hover:border-purple-500/30 cursor-pointer"
+                          style={{
+                            animation: `fadeInUp 0.6s ease-out ${0.5 + index * 0.1}s backwards`,
+                          }}
+                        >
+                          {/* Gradient Top Border */}
+                          <div
+                            className={`absolute top-0 left-0 right-0 h-1 bg-linear-to-r ${statusInfo.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left`}
+                          />
 
-                  {/* Content */}
-                  <div className="p-6">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-5">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg ${statusInfo.bgSoft} ${statusInfo.text} border border-current/20`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${statusInfo.bg} animate-pulse`} />
-                            {statusInfo.label}
-                          </span>
+                          {/* Content */}
+                          <div className="p-6">
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-5">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg ${statusInfo.bgSoft} ${statusInfo.text} border border-current/20`}
+                                  >
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full ${statusInfo.bg} animate-pulse`}
+                                    />
+                                    {statusInfo.label}
+                                  </span>
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                                  {project?.projectName || "Untitled Project"}
+                                </h3>
+                                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                                  <Building2 className="w-4 h-4" />
+                                  {project?.clientName || "Unknown Client"}
+                                </div>
+                              </div>
+
+                              {/* Actions - Stop propagation to prevent card click */}
+                              <div
+                                className="flex items-center gap-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={() => handleEdit(project)}
+                                  className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all"
+                                  title="Edit Project"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(project._id!)}
+                                  className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                                  title="Delete Project"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Type Badge */}
+                            <div
+                              className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-linear-to-br ${statusInfo.color} bg-opacity-10 mb-4`}
+                            >
+                              <div
+                                className={`w-8 h-8 rounded-lg bg-linear-to-br ${statusInfo.color} flex items-center justify-center`}
+                              >
+                                <div className="text-white">
+                                  {getProjectTypeIcon(
+                                    project?.projectType || "web_app",
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                {projectTypeOptions.find(
+                                  (opt) => opt.value === project?.projectType,
+                                )?.label || "Web App"}
+                              </span>
+                            </div>
+
+                            {/* Description */}
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-5 line-clamp-2 min-h-10">
+                              {project?.description || "No description"}
+                            </p>
+
+                            {/* Stats */}
+                            <div className="grid grid-cols-2 gap-3 mb-5">
+                              <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 text-center border border-slate-100 dark:border-white/10">
+                                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+                                  {(project?.totalHours || 0).toFixed(1)}h
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                  Hours
+                                </p>
+                              </div>
+                              <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 text-center border border-slate-100 dark:border-white/10">
+                                <p className="text-2xl font-bold text-pink-600 dark:text-pink-400 mb-1">
+                                  ${(project?.totalEarnings || 0).toFixed(2)}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                  Earnings
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Rate */}
+                            <div className="flex items-center justify-between text-sm mb-4 px-1">
+                              <span className="text-slate-500 dark:text-slate-400 font-medium">
+                                Hourly Rate
+                              </span>
+                              <span className="font-bold text-slate-900 dark:text-white">
+                                ${project?.hourlyRate || 0}/hr
+                              </span>
+                            </div>
+
+                            {/* Status Actions */}
+                            <div
+                              className="flex gap-2 mb-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {(project?.status || "active") !== "active" && (
+                                <button
+                                  onClick={() =>
+                                    handleStatusChange(project._id!, "active")
+                                  }
+                                  className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 transition-all hover:-translate-y-0.5"
+                                >
+                                  Active
+                                </button>
+                              )}
+                              {(project?.status || "active") !== "hold" && (
+                                <button
+                                  onClick={() =>
+                                    handleStatusChange(project._id!, "hold")
+                                  }
+                                  className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 transition-all hover:-translate-y-0.5"
+                                >
+                                  Hold
+                                </button>
+                              )}
+                              {(project?.status || "active") !==
+                                "completed" && (
+                                <button
+                                  onClick={() =>
+                                    handleStatusChange(
+                                      project._id!,
+                                      "completed",
+                                    )
+                                  }
+                                  className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30 transition-all hover:-translate-y-0.5"
+                                >
+                                  Complete
+                                </button>
+                              )}
+                            </div>
+
+                            {/* View Details Indicator */}
+                            <div className="text-center">
+                              <span className="text-xs text-purple-400 dark:text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1">
+                                View Details
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 5l7 7-7 7"
+                                  />
+                                </svg>
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                          {project?.projectName || 'Untitled Project'}
-                        </h3>
-                        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                          <Building2 className="w-4 h-4" />
-                          {project?.clientName || 'Unknown Client'}
-                        </div>
-                      </div>
-
-                      {/* Actions - Stop propagation to prevent card click */}
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => handleEdit(project)}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all"
-                          title="Edit Project"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(project._id!)}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
-                          title="Delete Project"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Type Badge */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-linear-to-br ${statusInfo.color} bg-opacity-10 mb-4`}>
-                      <div className={`w-8 h-8 rounded-lg bg-linear-to-br ${statusInfo.color} flex items-center justify-center`}>
-                        <div className="text-white">
-                          {getProjectTypeIcon(project?.projectType || 'web_app')}
-                        </div>
-                      </div>
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        {projectTypeOptions.find(opt => opt.value === project?.projectType)?.label || 'Web App'}
-                      </span>
-                    </div>
-
-                    {/* Description */}
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-5 line-clamp-2 min-h-10">
-                      {project?.description || 'No description'}
-                    </p>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-3 mb-5">
-                      <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 text-center border border-slate-100 dark:border-white/10">
-                        <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
-                          {(project?.totalHours || 0).toFixed(1)}h
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                          Hours
-                        </p>
-                      </div>
-                      <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-4 text-center border border-slate-100 dark:border-white/10">
-                        <p className="text-2xl font-bold text-pink-600 dark:text-pink-400 mb-1">
-                          ${(project?.totalEarnings || 0).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                          Earnings
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Rate */}
-                    <div className="flex items-center justify-between text-sm mb-4 px-1">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">Hourly Rate</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        ${project?.hourlyRate || 0}/hr
-                      </span>
-                    </div>
-
-                    {/* Status Actions */}
-                    <div className="flex gap-2 mb-3" onClick={(e) => e.stopPropagation()}>
-                      {(project?.status || 'active') !== "active" && (
-                        <button
-                          onClick={() => handleStatusChange(project._id!, "active")}
-                          className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 transition-all hover:-translate-y-0.5"
-                        >
-                          Active
-                        </button>
-                      )}
-                      {(project?.status || 'active') !== "hold" && (
-                        <button
-                          onClick={() => handleStatusChange(project._id!, "hold")}
-                          className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 transition-all hover:-translate-y-0.5"
-                        >
-                          Hold
-                        </button>
-                      )}
-                      {(project?.status || 'active') !== "completed" && (
-                        <button
-                          onClick={() => handleStatusChange(project._id!, "completed")}
-                          className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30 transition-all hover:-translate-y-0.5"
-                        >
-                          Complete
-                        </button>
-                      )}
-                    </div>
-
-                    {/* View Details Indicator */}
-                    <div className="text-center">
-                      <span className="text-xs text-purple-400 dark:text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1">
-                        View Details
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </span>
-                    </div>
+                      );
+                    })}
                   </div>
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+                      {/* Showing X-Y of Z */}
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        Showing{" "}
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {startIndex + 1}
+                        </span>{" "}
+                        -{" "}
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {Math.min(endIndex, filteredProjects.length)}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {filteredProjects.length}
+                        </span>{" "}
+                        projects
+                      </div>
+
+                      {/* Pagination Buttons */}
+                      <div className="flex items-center gap-2">
+                        {/* Previous Button */}
+                        <button
+                          onClick={() =>
+                            setCurrentPage((prev) => Math.max(1, prev - 1))
+                          }
+                          disabled={currentPage === 1}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 hover:-translate-y-0.5"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          <span className="hidden sm:inline">Previous</span>
+                        </button>
+
+                        {/* Page Numbers */}
+                        <div className="flex items-center gap-1">
+                          {Array.from(
+                            { length: totalPages },
+                            (_, i) => i + 1,
+                          ).map((pageNum) => {
+                            // Show first page, last page, and pages around current page
+                            const showPage =
+                              pageNum === 1 ||
+                              pageNum === totalPages ||
+                              (pageNum >= currentPage - 1 &&
+                                pageNum <= currentPage + 1);
+
+                            if (!showPage && totalPages > 7) {
+                              // Show ellipsis for hidden pages
+                              const prevPage = pageNum - 1;
+                              const showEllipsis =
+                                prevPage === currentPage - 2 ||
+                                prevPage === currentPage + 2;
+                              if (showEllipsis) {
+                                return (
+                                  <span
+                                    key={pageNum}
+                                    className="w-10 h-10 flex items-center justify-center text-slate-400"
+                                  >
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return null;
+                            }
+
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => setCurrentPage(pageNum)}
+                                className={`w-10 h-10 rounded-xl font-medium transition-all ${
+                                  currentPage === pageNum
+                                    ? "bg-linear-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20"
+                                    : "bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 hover:-translate-y-0.5"
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Next Button */}
+                        <button
+                          onClick={() =>
+                            setCurrentPage((prev) =>
+                              Math.min(totalPages, prev + 1),
+                            )
+                          }
+                          disabled={currentPage === totalPages}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 hover:-translate-y-0.5"
+                        >
+                          <span className="hidden sm:inline">Next</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
-            })}
-              </div>
-            );
-          })()}
-        </>
+            })()}
+          </>
         )}
       </div>
 
@@ -670,7 +894,9 @@ export default function ProjectsPage() {
             <div className="sticky top-0 z-10 p-6 border-b border-slate-200/50 dark:border-white/10 bg-white/80 dark:bg-white/5 backdrop-blur-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${editingProject ? 'from-blue-500 to-blue-600' : 'from-purple-500 to-pink-500'} flex items-center justify-center`}>
+                  <div
+                    className={`w-10 h-10 rounded-xl bg-linear-to-br ${editingProject ? "from-blue-500 to-blue-600" : "from-purple-500 to-pink-500"} flex items-center justify-center`}
+                  >
                     {editingProject ? (
                       <Edit2 className="w-5 h-5 text-white" />
                     ) : (
@@ -897,7 +1123,7 @@ export default function ProjectsPage() {
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out;
         }
-      ` }</style>
+      `}</style>
     </div>
   );
 }

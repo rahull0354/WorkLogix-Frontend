@@ -92,27 +92,26 @@ export const getTimeEntriesByProject = async (
 export const getAllTimeEntries = async (params?: {
   page?: number;
   limit?: number;
-  projectId?: string;
-  startDate?: string;
-  endDate?: string;
+  sortBy?: string;
+  order?: string;
+  status?: string;
 }): Promise<TimeEntriesListResponse> => {
   const queryParams = new URLSearchParams();
   if (params?.page) queryParams.append('page', params.page.toString());
   if (params?.limit) queryParams.append('limit', params.limit.toString());
-  if (params?.projectId) queryParams.append('projectId', params.projectId);
-  if (params?.startDate) queryParams.append('startDate', params.startDate);
-  if (params?.endDate) queryParams.append('endDate', params.endDate);
+  if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+  if (params?.order) queryParams.append('order', params.order);
+  if (params?.status) queryParams.append('status', params.status);
 
   const response = await api.get<any>(
     `/timeEntry/myEntries?${queryParams.toString()}`,
   );
 
-  const timeEntries = response.data.timeEntries || response.data.entries || [];
-
+  // Backend returns: { message, success, timeEntries, totalCount, pagination }
   return {
-    entries: timeEntries,
-    total: response.data.count || response.data.total || timeEntries.length,
-    totalHours: response.data.totalHours || 0,
+    entries: response.data.timeEntries || [],
+    total: response.data.totalCount || 0,
+    totalHours: 0,
   };
 };
 

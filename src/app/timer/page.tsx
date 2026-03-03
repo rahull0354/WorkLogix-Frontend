@@ -15,7 +15,10 @@ export default function TimerPage() {
     isRunning,
     isOnBreak,
     elapsedSeconds,
+    breakSeconds,
+    breakStartTime,
     updateElapsedSeconds,
+    updateBreakSeconds,
     resetTimer,
   } = useTimerStore();
 
@@ -26,32 +29,18 @@ export default function TimerPage() {
   const [taskDescription, setTaskDescription] = useState("");
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [breakSeconds, setBreakSeconds] = useState(0);
   const [recentEntries, setRecentEntries] = useState<any[]>([]);
+  const [displayBreakSeconds, setDisplayBreakSeconds] = useState(0);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const breakIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debug: Log when recentEntries changes
-  useEffect(() => {
-    console.log("recentEntries state updated:", recentEntries);
-  }, [recentEntries]);
-
-  // Load recent entries from localStorage
-  const loadRecentEntries = (limit: number = 10) => {
+  // Fetch recent entries from backend
+  const fetchRecentEntries = async (limit: number = 10) => {
     try {
-      const stored = localStorage.getItem('completedTimeEntries');
-      console.log("📦 Loading from localStorage:", stored);
-
-      if (!stored) {
-        console.log("⚠️ No entries found in localStorage");
-        setRecentEntries([]);
-        return;
-      }
-
-      const entries = JSON.parse(stored);
-      console.log("📋 Parsed entries:", entries);
-      console.log("📊 Total entries:", entries.length);
+      const { getAllTimeEntries } = await import("@/lib/api");
+      const response = await getAllTimeEntries({ limit, status: "completed" });
+      const entries = response.entries || [];
 
       // Sort by endTime (most recent first)
       const sorted = entries.sort((a: any, b: any) => {
@@ -61,48 +50,9 @@ export default function TimerPage() {
       });
 
       const limited = sorted.slice(0, limit);
-      console.log("✅ Setting recentEntries:", limited);
       setRecentEntries(limited);
     } catch (error) {
-      console.error("❌ Error loading recent entries:", error);
-    }
-  };
-
-  // Save completed entry to localStorage
-  const saveCompletedEntry = (entry: any) => {
-    try {
-      console.log("Saving completed entry:", entry);
-      const stored = localStorage.getItem('completedTimeEntries');
-      const entries = stored ? JSON.parse(stored) : [];
-
-      // Calculate duration if not present
-      const entryWithDuration = {
-        ...entry,
-        duration: entry.duration || (entry.endTime && entry.startTime
-          ? Math.floor((new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000)
-          : elapsedSeconds
-        )
-      };
-
-      console.log("Entry with duration:", entryWithDuration);
-
-      // Check if entry already exists
-      const existingIndex = entries.findIndex((e: any) => e._id === entry._id);
-      if (existingIndex >= 0) {
-        entries[existingIndex] = entryWithDuration;
-      } else {
-        entries.push(entryWithDuration);
-      }
-
-      // Keep only last 50 entries
-      const trimmed = entries.slice(-50);
-      localStorage.setItem('completedTimeEntries', JSON.stringify(trimmed));
-      console.log("Saved to localStorage. Total entries:", trimmed.length);
-
-      // Update recent entries state
-      loadRecentEntries(10);
-    } catch (error) {
-      console.error("Error saving completed entry:", error);
+      setRecentEntries([]);
     }
   };
 
@@ -123,11 +73,10 @@ export default function TimerPage() {
         const data = Array.isArray(projectsData) ? projectsData : projectsData.findProjects || projectsData.projects || [];
         setProjects(data);
 
-        // Load recent entries from localStorage
-        console.log("About to load recent entries...");
-        loadRecentEntries(10);
+        // Fetch recent entries from backend
+        fetchRecentEntries(10);
       } catch (error: any) {
-        console.error("Error initializing timer:", error);
+        toast.error("Failed to initialize timer");
       } finally {
         setLoading(false);
       }
@@ -135,6 +84,24 @@ export default function TimerPage() {
 
     initData();
   }, []);
+
+  // Calculate break duration after store is loaded
+  useEffect(() => {
+    if (!loading) {
+      if (isOnBreak && breakStartTime > 0) {
+        // Currently on break - calculate current break duration
+        const now = Date.now();
+        const currentBreakDuration = Math.floor((now - breakStartTime) / 1000);
+        setDisplayBreakSeconds(breakSeconds + currentBreakDuration);
+      } else if (activeEntry) {
+        // Not on break but have active entry - show total break time
+        setDisplayBreakSeconds(breakSeconds);
+      } else {
+        // No active entry
+        setDisplayBreakSeconds(0);
+      }
+    }
+  }, [loading, isOnBreak, breakStartTime, breakSeconds, activeEntry]);
 
   // Timer tick effect
   useEffect(() => {
@@ -158,15 +125,26 @@ export default function TimerPage() {
   // Break timer tick effect
   useEffect(() => {
     if (isOnBreak) {
+      // Calculate initial break duration
+      if (breakStartTime > 0) {
+        const now = Date.now();
+        const currentBreakDuration = Math.floor((now - breakStartTime) / 1000);
+        setDisplayBreakSeconds(breakSeconds + currentBreakDuration);
+      }
+
       breakIntervalRef.current = setInterval(() => {
-        setBreakSeconds(prev => prev + 1);
+        setDisplayBreakSeconds(prev => prev + 1);
       }, 1000);
     } else {
       if (breakIntervalRef.current) {
         clearInterval(breakIntervalRef.current);
       }
-      if (!isRunning && !isOnBreak) {
-        setBreakSeconds(0);
+      // When not on break but have active entry, show total break time from store
+      if (activeEntry) {
+        setDisplayBreakSeconds(breakSeconds);
+      } else {
+        // No active entry, reset display
+        setDisplayBreakSeconds(0);
       }
     }
 
@@ -175,7 +153,7 @@ export default function TimerPage() {
         clearInterval(breakIntervalRef.current);
       }
     };
-  }, [isOnBreak, isRunning]);
+  }, [isOnBreak, isRunning, breakStartTime, breakSeconds, activeEntry]);
 
   const handleStart = async () => {
     if (!selectedProjectId) {
@@ -186,30 +164,23 @@ export default function TimerPage() {
     const result = await startTimeEntryAction(selectedProjectId, taskDescription);
     if (result.success) {
       toast.success("Timer started!");
-      setBreakSeconds(0); // Reset break time
+      setDisplayBreakSeconds(0); // Reset break time display
     } else {
       toast.error(result.error || "Failed to start timer");
     }
   };
 
   const handlePause = async () => {
-    console.log("handlePause called");
-    console.log("activeEntry:", activeEntry);
-    console.log("isRunning:", isRunning);
-    console.log("isOnBreak:", isOnBreak);
-
     if (!activeEntry) {
       toast.error("No active timer to pause");
       return;
     }
 
     const result = await takeBreakAction();
-    console.log("takeBreakAction result:", result);
-    console.log("Result success:", result.success);
 
     if (result.success) {
       toast.success("Break started!");
-      setBreakSeconds(0); // Reset break counter
+      setDisplayBreakSeconds(0); // Reset break display counter (store will track total)
     } else {
       toast.error(result.error || "Failed to take break");
     }
@@ -242,10 +213,8 @@ export default function TimerPage() {
       if (result.success) {
         toast.success("Time entry completed!");
 
-        // Save completed entry to localStorage for recent entries display
-        if (result.entry) {
-          saveCompletedEntry(result.entry);
-        }
+        // Fetch recent entries from backend
+        fetchRecentEntries(10);
 
         setSelectedProjectId("");
         setTaskDescription("");
@@ -420,6 +389,13 @@ export default function TimerPage() {
 
               {/* Inner Content */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
+                {/* Work Time Label */}
+                {activeEntry && (
+                  <div className="text-[8px] md:text-[10px] text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wider mb-1">
+                    Work Time
+                  </div>
+                )}
+
                 {/* HH:MM:SS Display */}
                 <div className="flex items-center gap-2 mb-3">
                   {/* Hours */}
@@ -462,6 +438,11 @@ export default function TimerPage() {
                     On Break
                   </div>
                 )}
+                {!isRunning && activeEntry && !isOnBreak && (
+                  <div className="mt-2 px-3 py-1 bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-400 rounded-full text-xs font-semibold">
+                    Stopped
+                  </div>
+                )}
 
                 {/* Labels */}
                 <div className="flex items-center gap-4 text-xs text-purple-700/80 dark:text-purple-300/80 tracking-widest uppercase mt-2">
@@ -472,14 +453,14 @@ export default function TimerPage() {
               </div>
             </div>
 
-            {/* Mini Break Timer Circle - Shows when on break */}
-            {isOnBreak && (
+            {/* Mini Break Timer Circle - Shows when there's an active entry */}
+            {activeEntry && (
               <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-36 h-36 z-20">
-                {/* Debug: Make it very visible */}
-                <div className="absolute inset-0 rounded-full bg-amber-500/30 animate-pulse" />
+                {/* Break Glow - Only animate when on break */}
+                <div className={`absolute inset-0 rounded-full bg-amber-500/30 ${isOnBreak ? 'animate-pulse' : ''}`} />
 
-                {/* Break Glow */}
-                <div className="absolute inset-0 rounded-full blur-xl bg-amber-500/40 animate-pulse" />
+                {/* Break Glow Effect */}
+                <div className={`absolute inset-0 rounded-full blur-xl bg-amber-500/40 ${isOnBreak ? 'animate-pulse' : 'opacity-50'}`} />
 
                 {/* SVG Ring */}
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -503,7 +484,7 @@ export default function TimerPage() {
                     stroke="url(#breakGradient)"
                     strokeWidth="2"
                     strokeDasharray={`${2 * Math.PI * 46}`}
-                    strokeDashoffset={`${2 * Math.PI * 46 * (1 - (breakSeconds % 60) / 60)}`}
+                    strokeDashoffset={`${2 * Math.PI * 46 * (1 - (displayBreakSeconds % 60) / 60)}`}
                     className="transition-all duration-300 ease-out"
                     strokeLinecap="round"
                   />
@@ -520,13 +501,13 @@ export default function TimerPage() {
                 {/* Break Time Display */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <div className="text-2xl md:text-3xl font-bold text-amber-600 dark:text-amber-400">
-                    {String(Math.floor(breakSeconds / 60)).padStart(2, "0")}
+                    {String(Math.floor(displayBreakSeconds / 60)).padStart(2, "0")}
                   </div>
                   <div className="text-[8px] md:text-[10px] text-amber-700 dark:text-amber-500 font-semibold uppercase tracking-wider">
-                    Break
+                    {isOnBreak ? 'Break' : 'Total Break'}
                   </div>
                   <div className="text-xs md:text-sm text-amber-600 dark:text-amber-400 font-medium">
-                    {String(breakSeconds % 60).padStart(2, "0")}s
+                    {String(displayBreakSeconds % 60).padStart(2, "0")}s
                   </div>
                 </div>
 
@@ -707,10 +688,30 @@ export default function TimerPage() {
               </div>
             ) : (
               recentEntries.map((entry) => {
-                console.log("Rendering entry:", entry);
-                const project = getProjectById(entry.projectId);
+                // Handle projectId - it might be a string ID or an object with _id
+                const projectId = typeof entry.projectId === 'string'
+                  ? entry.projectId
+                  : entry.projectId?._id;
+
+                const project = getProjectById(projectId);
                 const { icon, color } = getProjectTypeIcon(project?.projectType || "");
-                const duration = entry.duration || 0;
+
+                // Calculate duration - try multiple fields
+                let duration = 0;
+                if (entry.duration && entry.duration > 0) {
+                  duration = entry.duration;
+                } else if (entry.totalTime && entry.totalTime > 0) {
+                  // totalTime is in minutes, convert to seconds
+                  duration = entry.totalTime * 60;
+                } else if (entry.sessions && Array.isArray(entry.sessions)) {
+                  // Sum up work sessions
+                  duration = entry.sessions
+                    .filter((s: any) => s.type === 'work')
+                    .reduce((acc: number, s: any) => acc + (s.duration || 0), 0);
+                } else if (entry.startTime && entry.endTime) {
+                  // Calculate from start and end times
+                  duration = Math.floor((new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / 1000);
+                }
 
                 return (
                   <div key={entry._id} className="group flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-purple-500/50 transition-all duration-300">
