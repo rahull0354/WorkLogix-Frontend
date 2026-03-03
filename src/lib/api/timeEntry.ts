@@ -79,7 +79,7 @@ export const getTimeEntriesByProject = async (
   const response = await api.get<any>(
     `/timeEntry/project/${projectId}`,
   );
-  
+
   const timeEntries = response.data.timeEntries || response.data.entries || [];
 
   return {
@@ -87,4 +87,38 @@ export const getTimeEntriesByProject = async (
     total: response.data.count || response.data.total || timeEntries.length,
     totalHours: 0, // Calculate if needed
   };
+};
+
+export const getAllTimeEntries = async (params?: {
+  page?: number;
+  limit?: number;
+  projectId?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<TimeEntriesListResponse> => {
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.projectId) queryParams.append('projectId', params.projectId);
+  if (params?.startDate) queryParams.append('startDate', params.startDate);
+  if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+  const response = await api.get<any>(
+    `/timeEntry/myEntries?${queryParams.toString()}`,
+  );
+
+  const timeEntries = response.data.timeEntries || response.data.entries || [];
+
+  return {
+    entries: timeEntries,
+    total: response.data.count || response.data.total || timeEntries.length,
+    totalHours: response.data.totalHours || 0,
+  };
+};
+
+export const deleteTimeEntry = async (
+  timeEntryId: string,
+): Promise<{ message: string }> => {
+  const response = await api.delete(`/timeEntry/${timeEntryId}`);
+  return response.data;
 };
