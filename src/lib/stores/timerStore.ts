@@ -17,6 +17,8 @@ export const useTimerStore = create<TimerStore>()(
       isOnBreak: false,
       elapsedSeconds: 0,
       lastUpdateTime: 0,
+      breakSeconds: 0,
+      breakStartTime: 0,
 
       setActiveEntry: (entry: TimeEntry | null) => {
         set({
@@ -25,6 +27,8 @@ export const useTimerStore = create<TimerStore>()(
           isOnBreak: entry?.status === "break",
           elapsedSeconds: 0,
           lastUpdateTime: Date.now(),
+          breakSeconds: 0,
+          breakStartTime: 0,
         });
       },
 
@@ -35,33 +39,69 @@ export const useTimerStore = create<TimerStore>()(
           isOnBreak: false,
           elapsedSeconds: 0,
           lastUpdateTime: Date.now(),
+          breakSeconds: 0,
+          breakStartTime: 0,
         });
       },
 
       stopTimer: () => {
-        set({
-          isRunning: false,
-          isOnBreak: false,
-        });
+        const state = get();
+        const now = Date.now();
+
+        // If currently on break, calculate and save the break duration first
+        if (state.isOnBreak && state.breakStartTime > 0) {
+          const breakDuration = Math.floor((now - state.breakStartTime) / 1000);
+          set({
+            isRunning: false,
+            isOnBreak: false,
+            breakSeconds: state.breakSeconds + breakDuration,
+            breakStartTime: 0,
+          });
+        } else {
+          // Not on break, just stop without resetting breakSeconds
+          set({
+            isRunning: false,
+            isOnBreak: false,
+          });
+        }
       },
 
       pauseTimer: () => {
         set({
           isRunning: false,
           isOnBreak: true,
+          breakStartTime: Date.now(),
         });
       },
 
       resumeTimer: () => {
-        set({
-          isRunning: true,
-          isOnBreak: false,
-          lastUpdateTime: Date.now(),
-        });
+        const state = get();
+        const now = Date.now();
+        // Calculate break duration
+        if (state.breakStartTime > 0) {
+          const breakDuration = Math.floor((now - state.breakStartTime) / 1000);
+          set({
+            isRunning: true,
+            isOnBreak: false,
+            breakSeconds: state.breakSeconds + breakDuration,
+            breakStartTime: 0,
+            lastUpdateTime: now,
+          });
+        } else {
+          set({
+            isRunning: true,
+            isOnBreak: false,
+            lastUpdateTime: now,
+          });
+        }
       },
 
       updateElapsedSeconds: (seconds: number) => {
         set({ elapsedSeconds: seconds });
+      },
+
+      updateBreakSeconds: (seconds: number) => {
+        set({ breakSeconds: seconds });
       },
 
       resetTimer: () => {
@@ -71,6 +111,8 @@ export const useTimerStore = create<TimerStore>()(
           isOnBreak: false,
           elapsedSeconds: 0,
           lastUpdateTime: 0,
+          breakSeconds: 0,
+          breakStartTime: 0,
         });
       },
     }),
@@ -82,6 +124,8 @@ export const useTimerStore = create<TimerStore>()(
         isOnBreak: state.isOnBreak,
         elapsedSeconds: state.elapsedSeconds,
         lastUpdateTime: state.lastUpdateTime,
+        breakSeconds: state.breakSeconds,
+        breakStartTime: state.breakStartTime,
       }),
     }
   )

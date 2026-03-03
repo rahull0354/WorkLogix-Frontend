@@ -73,6 +73,8 @@ export interface TimerState {
   isOnBreak: boolean;             // Is timer on break?
   elapsedSeconds: number;         // Elapsed time in seconds
   lastUpdateTime: number;         // Last update timestamp
+  breakSeconds: number;           // Break duration in seconds
+  breakStartTime: number;         // When the current break started (timestamp)
 }
 
 /**
@@ -85,6 +87,7 @@ export interface TimerActions {
   pauseTimer: () => void;
   resumeTimer: () => void;
   updateElapsedSeconds: (seconds: number) => void;
+  updateBreakSeconds: (seconds: number) => void;
   resetTimer: () => void;
 }
 

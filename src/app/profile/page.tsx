@@ -330,7 +330,16 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="flex-1 text-center md:text-left">
+                <div className="flex-1 text-center md:text-left relative">
+                  {/* Edit Profile Button - Top Right */}
+                  <button
+                    onClick={handleEdit}
+                    className="absolute top-0 right-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-linear-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/30 hover:-translate-y-0.5 transition-all duration-300 text-sm"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    <span>Edit Profile</span>
+                  </button>
+
                   <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-sm font-semibold mb-4">
                     <Shield className="w-4 h-4" />
                     <span>Verified Account</span>
@@ -344,7 +353,7 @@ export default function ProfilePage() {
                     @{profile.username}
                   </p>
 
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-slate-500 dark:text-slate-500 mb-6">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-slate-500 dark:text-slate-500">
                     <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/5">
                       <Mail className="w-4 h-4" />
                       <span className="font-medium">{profile.email}</span>
@@ -356,14 +365,6 @@ export default function ProfilePage() {
                       </span>
                     </div>
                   </div>
-
-                  <button
-                    onClick={handleEdit}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg hover:shadow-purple-500/30 hover:-translate-y-0.5 transition-all duration-300"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                    <span>Edit Profile</span>
-                  </button>
                 </div>
               </div>
             </div>
