@@ -80,6 +80,7 @@ export const createProject = async (data: {
   clientName: string;
   hourlyRate: number;
   description: string;
+  projectType: "api_development" | "web_app" | "mobile_app" | "consulting" | "website_redesign";
 }) => {
   const { addProject, setLoading, setError } = useProjectStore.getState();
 

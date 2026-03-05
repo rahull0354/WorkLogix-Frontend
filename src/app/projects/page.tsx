@@ -2,12 +2,12 @@
 
 import {
   changeProjectStatus,
-  createProject,
   deleteProject,
   getMyProjects,
   updateProject,
   getTimeEntriesByProject,
 } from "@/lib/api";
+import { createProject } from "@/lib/stores/projectStore";
 import { Project, ProjectWithStats, ProjectType } from "@/lib/types";
 import {
   Building2,
