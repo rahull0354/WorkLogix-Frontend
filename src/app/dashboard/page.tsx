@@ -55,15 +55,50 @@ const projectTypeOptions: { value: ProjectType; label: string; color: string }[]
  */
 const getEntryDuration = (entry: any): number => {
   if (entry.duration && entry.duration > 0) return entry.duration;
-  if (entry.totalTime && entry.totalTime > 0) return entry.totalTime * 60;
+
+  // Check if totalTime is already in seconds (large number) or in minutes
+  if (entry.totalTime && entry.totalTime > 0) {
+    if (entry.totalTime > 1000) {
+      return entry.totalTime; // Already in seconds
+    }
+    return entry.totalTime * 60; // Convert minutes to seconds
+  }
+
   if (entry.sessions && Array.isArray(entry.sessions) && entry.sessions.length > 0) {
     const workSessions = entry.sessions.filter((s: any) => s.type === "work");
+
     const totalFromSessions = workSessions.reduce((acc: number, s: any) => {
-      // Session duration is stored in MINUTES, convert to seconds
-      return acc + ((s.duration || 0) * 60);
+      let sessionDuration = 0;
+
+      // First, try to use the stored duration
+      if (s.duration && s.duration > 0) {
+        sessionDuration = s.duration;
+
+        // Check if duration is in milliseconds (very large number)
+        if (sessionDuration > 1000000) {
+          // It's in milliseconds, convert to seconds
+          sessionDuration = sessionDuration / 1000;
+        } else if (sessionDuration < 1000) {
+          // It's likely in minutes, convert to seconds
+          sessionDuration = sessionDuration * 60;
+        }
+        // If duration > 1000 and < 1000000, it's already in seconds
+      } else if (s.startTime && s.endTime) {
+        // If duration is 0 or missing, calculate from timestamps
+        try {
+          const start = new Date(s.startTime);
+          const end = new Date(s.endTime);
+          sessionDuration = (end.getTime() - start.getTime()) / 1000;
+        } catch (err) {
+          // Silent fail
+        }
+      }
+
+      return acc + sessionDuration;
     }, 0);
     if (totalFromSessions > 0) return totalFromSessions;
   }
+
   if (entry.startTime && entry.endTime) {
     try {
       const start = new Date(entry.startTime);
@@ -116,6 +151,26 @@ interface Activity {
   time: string;
   timestamp: number;
 }
+
+// Helper function to safely get project ID from entry
+const getProjectId = (entry: any): string => {
+  if (typeof entry.projectId === "object" && entry.projectId !== null) {
+    return entry.projectId._id;
+  }
+  return entry.projectId;
+};
+
+// Helper function to safely get project name from entry
+const getProjectName = (entry: any, projects: Project[]): string => {
+  if (typeof entry.projectId === "object" && entry.projectId !== null) {
+    return entry.projectId.projectName || "Unknown Project";
+  }
+
+  // If projectId is a string, find the project
+  const projectId = entry.projectId;
+  const project = projects.find(p => p._id === projectId);
+  return project?.projectName || "Unknown Project";
+};
 
 const StatCard = ({
   icon: Icon,
@@ -415,12 +470,11 @@ export default function DashboardPage() {
 
       // Prepare activities from time entries
       const timeActivities: Activity[] = entries.slice(0, 20).map((entry: TimeEntry) => {
-        const project = projectsData.find(p => p._id === entry.projectId);
         return {
           id: entry._id,
           type: "time" as const,
           title: entry.description || "Time entry",
-          project: project?.projectName || "Unknown Project",
+          project: getProjectName(entry, projectsData),
           duration: formatDuration(getEntryDuration(entry)),
           time: getRelativeTime(entry.createdAt),
           timestamp: new Date(entry.createdAt).getTime()

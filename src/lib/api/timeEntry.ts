@@ -118,6 +118,6 @@ export const getAllTimeEntries = async (params?: {
 export const deleteTimeEntry = async (
   timeEntryId: string,
 ): Promise<{ message: string }> => {
-  const response = await api.delete(`/timeEntry/${timeEntryId}`);
+  const response = await api.delete(`/timeEntry/delete/${timeEntryId}`);
   return response.data;
 };
