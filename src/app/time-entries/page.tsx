@@ -186,22 +186,81 @@ export default function TimeEntriesPage() {
   };
 
   const getEntryDuration = (entry: any): number => {
-    if (entry.duration && entry.duration > 0) return entry.duration;
-    if (entry.totalTime && entry.totalTime > 0) return entry.totalTime * 60;
-    if (entry.sessions && Array.isArray(entry.sessions)) {
+    // Priority 1: Try the duration field (in seconds)
+    if (entry.duration && entry.duration > 0) {
+      return entry.duration;
+    }
+
+    // Priority 2: Check totalTime field (might be in minutes or seconds)
+    if (entry.totalTime && entry.totalTime > 0) {
+      // Check if totalTime is already in seconds (large number) or in minutes
+      if (entry.totalTime > 1000) {
+        return entry.totalTime; // Already in seconds
+      }
+      return entry.totalTime * 60; // Convert minutes to seconds
+    }
+
+    // Priority 3: Sum work sessions from sessions array
+    if (entry.sessions && Array.isArray(entry.sessions) && entry.sessions.length > 0) {
       const workSessions = entry.sessions.filter((s: any) => s.type === "work");
-      return workSessions.reduce(
-        (acc: number, s: any) => acc + (s.duration || 0),
-        0,
-      );
+
+      const totalFromSessions = workSessions.reduce((acc: number, s: any) => {
+        let sessionDuration = 0;
+
+        // First, try to use the stored duration
+        if (s.duration && s.duration > 0) {
+          sessionDuration = s.duration;
+
+          // Check if duration is in milliseconds (very large number)
+          if (sessionDuration > 1000000) {
+            // It's in milliseconds, convert to seconds
+            sessionDuration = sessionDuration / 1000;
+          } else if (sessionDuration < 1000) {
+            // It's likely in minutes, convert to seconds
+            sessionDuration = sessionDuration * 60;
+          }
+          // If duration > 1000 and < 1000000, it's already in seconds
+        } else if (s.startTime && s.endTime) {
+          // If duration is 0 or missing, calculate from timestamps
+          try {
+            const start = new Date(s.startTime);
+            const end = new Date(s.endTime);
+            sessionDuration = (end.getTime() - start.getTime()) / 1000;
+          } catch (err) {
+            // Silent fail
+          }
+        }
+
+        return acc + sessionDuration;
+      }, 0);
+
+      if (totalFromSessions > 0) {
+        return totalFromSessions;
+      }
     }
+
+    // Priority 4: Calculate from timestamps
     if (entry.startTime && entry.endTime) {
-      return (
-        (new Date(entry.endTime).getTime() -
-          new Date(entry.startTime).getTime()) /
-        1000
-      );
+      try {
+        const start = new Date(entry.startTime);
+        const end = new Date(entry.endTime);
+        return (end.getTime() - start.getTime()) / 1000;
+      } catch {
+        // Silent fail
+      }
     }
+
+    // Priority 5: For running entries, calculate from startTime to now
+    if (entry.startTime && !entry.endTime) {
+      try {
+        const start = new Date(entry.startTime);
+        const now = new Date();
+        return (now.getTime() - start.getTime()) / 1000;
+      } catch {
+        // Silent fail
+      }
+    }
+
     return 0;
   };
 
@@ -210,8 +269,10 @@ export default function TimeEntriesPage() {
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
 
-    if (hours > 60) {
+    if (hours > 0 && minutes > 0) {
       return `${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+      return `${hours}h`;
     } else if (minutes > 0) {
       return `${minutes}m`;
     } else {
@@ -369,11 +430,11 @@ export default function TimeEntriesPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-black relative overflow-hidden">
       {/* Animated Background Orbs */}
       <div
-        className="fixed top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-purple-500 to-pink-500 rounded-full blur-[120px] opacity-[0.12] pointer-events-none animate-float"
+        className="fixed top-0 right-0 w-125 h-125 bg-linear-to-br from-purple-500 to-pink-500 rounded-full blur-[120px] opacity-[0.12] pointer-events-none animate-float"
         style={{ animationDelay: "0s" }}
       />
       <div
-        className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-br from-blue-500 to-purple-500 rounded-full blur-[100px] opacity-[0.10] pointer-events-none animate-float"
+        className="fixed bottom-0 left-0 w-100 h-100 bg-linear-to-br from-blue-500 to-purple-500 rounded-full blur-[100px] opacity-[0.10] pointer-events-none animate-float"
         style={{ animationDelay: "-10s" }}
       />
 
@@ -382,11 +443,11 @@ export default function TimeEntriesPage() {
         <div className="mb-8 animate-slideIn">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                 <Clock className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-4xl font-bold bg-linear-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   Time Entries
                 </h1>
                 <p className="text-slate-600 dark:text-slate-400">
@@ -409,7 +470,7 @@ export default function TimeEntriesPage() {
               <div className="relative" ref={exportMenuRef}>
                 <button
                   onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-linear-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/30 transition-all"
                 >
                   <Download className="w-5 h-5" />
                   <span>Export</span>
@@ -465,7 +526,7 @@ export default function TimeEntriesPage() {
 
           {/* Filters Panel */}
           {showFilters && (
-            <div className="bg-white dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl p-6 animate-fadeIn">
+            <div className="bg-white dark:bg-white/3 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl p-6 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 {/* Project Filter */}
                 <div>
@@ -554,7 +615,7 @@ export default function TimeEntriesPage() {
           className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 animate-fadeInUp"
           style={{ animationDelay: "0.15s" }}
         >
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-5 text-white">
+          <div className="bg-linear-to-br from-purple-500 to-purple-600 rounded-2xl p-5 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-100 text-sm font-medium mb-1">
@@ -568,7 +629,7 @@ export default function TimeEntriesPage() {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl p-5 text-white">
+          <div className="bg-linear-to-br from-pink-500 to-pink-600 rounded-2xl p-5 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-pink-100 text-sm font-medium mb-1">
@@ -582,7 +643,7 @@ export default function TimeEntriesPage() {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 text-white">
+          <div className="bg-linear-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-emerald-100 text-sm font-medium mb-1">
@@ -614,7 +675,7 @@ export default function TimeEntriesPage() {
 
         {/* Entries List */}
         <div
-          className="bg-white dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl overflow-hidden animate-fadeInUp"
+          className="bg-white dark:bg-white/3 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl overflow-hidden animate-fadeInUp"
           style={{ animationDelay: "0.2s" }}
         >
           {/* Table Header */}
@@ -702,7 +763,7 @@ export default function TimeEntriesPage() {
                 !filters.status && (
                   <button
                     onClick={() => router.push("/timer")}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg transition-all"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-purple-500 to-pink-500 text-white font-semibold hover:shadow-lg transition-all"
                   >
                     <Clock className="w-5 h-5" />
                     Start Tracking
@@ -865,7 +926,7 @@ export default function TimeEntriesPage() {
       {/* Delete Confirmation Modal */}
       {entryToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-white dark:bg-white/[0.05] backdrop-blur-2xl border border-slate-200 dark:border-white/10 rounded-3xl p-8 animate-scaleIn">
+          <div className="w-full max-w-md bg-white dark:bg-white/5 backdrop-blur-2xl border border-slate-200 dark:border-white/10 rounded-3xl p-8 animate-scaleIn">
             <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-500/20 flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>

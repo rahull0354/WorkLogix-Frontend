@@ -395,8 +395,7 @@ body {
 }
 
 html[data-theme="dark"] .auth-input,
-body[data-theme="dark"] .auth-input,
-.split-login-container .auth-input {
+body[data-theme="dark"] .auth-input {
   color: #ffffff !important;
 }
 

@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         document.cookie = `token=${newToken}; path=/; max-age=30d`
 
         toast.success(`Welcome back, ${newUser.username}!`);
-        router.push("/dashboard");
+        window.location.href = "/dashboard";
       } catch (error: any) {
         // Try multiple possible paths for the error message
         const message =
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         document.cookie = `token=${newToken}; path=/; max-age=30d`
 
         toast.success("Account Created Successfully!");
-        router.push("/login");
+        window.location.href = "/login";
       } catch (error: any) {
         const message =
           error.response?.data?.message ||

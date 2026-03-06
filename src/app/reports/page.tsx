@@ -15,6 +15,7 @@ import {
   Filter,
   FolderKanban,
   MoreHorizontal,
+  Search,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -105,12 +106,12 @@ const StatCard = ({
         animation: `fadeInUp 0.6s ease-out ${delay}s backwards`,
       }}
     >
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+      <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
 
       <div
-        className={`w-14 h-14 rounded-xl bg-gradient-to-br ${colorClasses[color as keyof typeof colorClasses]} flex items-center justify-center mb-4 relative`}
+        className={`w-14 h-14 rounded-xl bg-linear-to-br ${colorClasses[color as keyof typeof colorClasses]} flex items-center justify-center mb-4 relative`}
       >
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-br opacity-50 blur-xl" />
+        <div className="absolute inset-0 rounded-xl bg-linear-to-br opacity-50 blur-xl" />
         <Icon className="w-7 h-7 text-white relative z-10" />
       </div>
 
@@ -190,8 +191,14 @@ export default function ReportsPage() {
   // table stats
   const [currentPage, setCurrentPage] = useState(1);
   const entriesPerPage = 10;
+  const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   // export dropdown
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -238,9 +245,12 @@ export default function ReportsPage() {
 
       const params: any = {
         limit: 1000,
+        status: "completed", // Only fetch completed entries like dashboard does
       };
 
-      if (filters.status) params.status = filters.status;
+      if (filters.status && filters.status !== "") {
+        params.status = filters.status;
+      }
 
       const response = await getAllTimeEntries(params);
       let fetchedEntries = response.entries || [];
@@ -272,7 +282,7 @@ export default function ReportsPage() {
       }
 
       setEntries(fetchedEntries);
-      calculateReportData(fetchedEntries);
+      // Don't calculate here - let the useEffect handle it when projects are loaded
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message || "Failed to load time entries",
@@ -299,21 +309,52 @@ export default function ReportsPage() {
       return entry.duration;
     }
 
-    // Priority 2: Check totalTime field (might be in minutes)
+    // Priority 2: Check totalTime field (in MINUTES, convert to seconds)
     if (entry.totalTime && entry.totalTime > 0) {
-      return entry.totalTime * 60;
+      // Check if totalTime is already in seconds (large number) or minutes
+      // If it's greater than 1000, it's likely already in seconds
+      if (entry.totalTime > 1000) {
+        return entry.totalTime; // Already in seconds
+      }
+      return entry.totalTime * 60; // Convert minutes to seconds
     }
 
-    // Priority 3: Sum work sessions from sessions array (session duration is in MINUTES)
+    // Priority 3: Sum work sessions from sessions array
     if (
       entry.sessions &&
       Array.isArray(entry.sessions) &&
       entry.sessions.length > 0
     ) {
       const workSessions = entry.sessions.filter((s: any) => s.type === "work");
+
       const totalFromSessions = workSessions.reduce((acc: number, s: any) => {
-        // Session duration is stored in MINUTES, convert to seconds
-        return acc + ((s.duration || 0) * 60);
+        let sessionDuration = 0;
+
+        // First, try to use the stored duration
+        if (s.duration && s.duration > 0) {
+          sessionDuration = s.duration;
+
+          // Check if duration is in milliseconds (very large number)
+          if (sessionDuration > 1000000) {
+            // It's in milliseconds, convert to seconds
+            sessionDuration = sessionDuration / 1000;
+          } else if (sessionDuration < 1000) {
+            // It's likely in minutes, convert to seconds
+            sessionDuration = sessionDuration * 60;
+          }
+          // If duration > 1000 and < 1000000, it's already in seconds
+        } else if (s.startTime && s.endTime) {
+          // If duration is 0 or missing, calculate from timestamps
+          try {
+            const start = new Date(s.startTime);
+            const end = new Date(s.endTime);
+            sessionDuration = (end.getTime() - start.getTime()) / 1000;
+          } catch (err) {
+            // Silent fail
+          }
+        }
+
+        return acc + sessionDuration;
       }, 0);
 
       if (totalFromSessions > 0) {
@@ -372,8 +413,31 @@ export default function ReportsPage() {
   };
 
   const calculateReportData = (fetchedEntries: TimeEntryWithProject[]) => {
-    // Calculate total hours
-    const totalDuration = fetchedEntries.reduce(
+    // Validate entries and detect anomalies
+    const validEntries = fetchedEntries.filter(entry => {
+      const duration = getEntryDuration(entry);
+      const hours = duration / 3600;
+
+      // Log suspicious entries (more than 24 hours in a single day)
+      if (hours > 24) {
+        console.warn(`Suspicious entry detected:`, {
+          id: entry._id,
+          description: entry.description,
+          duration: duration,
+          hours: hours,
+          totalTime: entry.totalTime,
+          sessions: entry.sessions,
+          startTime: entry.startTime,
+          endTime: entry.endTime
+        });
+      }
+
+      // Exclude entries with unrealistic durations (> 24 hours)
+      return hours <= 24;
+    });
+
+    // Calculate total hours using only valid entries
+    const totalDuration = validEntries.reduce(
       (acc, entry) => acc + getEntryDuration(entry),
       0,
     );
@@ -385,7 +449,7 @@ export default function ReportsPage() {
     const projectMap = new Map<string, Project>();
     projects.forEach((p) => projectMap.set(p._id, p));
 
-    fetchedEntries.forEach((entry) => {
+    validEntries.forEach((entry) => {
       const projectId = getProjectId(entry);
       const project = projectMap.get(projectId);
       earnings += calculateEarnings(entry, project);
@@ -394,13 +458,13 @@ export default function ReportsPage() {
 
     // Count unique projects
     const uniqueProjects = new Set(
-      fetchedEntries.map((e) => getProjectId(e)).filter(Boolean),
+      validEntries.map((e) => getProjectId(e)).filter(Boolean),
     );
     setProjectCount(uniqueProjects.size);
 
     // Calculate average hours per day
     const uniqueDays = new Set(
-      fetchedEntries.map((e) =>
+      validEntries.map((e) =>
         new Date(e.startTime || e.createdAt).toDateString(),
       ),
     );
@@ -410,7 +474,7 @@ export default function ReportsPage() {
     // Daily breakdown
     const dailyMap = new Map<string, { hours: number; earnings: number }>();
 
-    fetchedEntries.forEach((entry) => {
+    validEntries.forEach((entry) => {
       const date = new Date(entry.startTime || entry.createdAt).toDateString();
       const duration = getEntryDuration(entry);
       const projectId = getProjectId(entry);
@@ -444,7 +508,7 @@ export default function ReportsPage() {
       { hours: number; earnings: number; name: string }
     >();
 
-    fetchedEntries.forEach((entry) => {
+    validEntries.forEach((entry) => {
       const projectId = getProjectId(entry);
       const projectName = getProjectName(entry);
       const duration = getEntryDuration(entry);
@@ -584,7 +648,30 @@ export default function ReportsPage() {
   };
 
   const getSortedAndPaginatedEntries = () => {
-    const sorted = [...entries].sort((a: any, b: any) => {
+    // Filter out entries with unrealistic durations (> 24 hours)
+    let validEntries = entries.filter((entry: any) => {
+      const duration = getEntryDuration(entry);
+      const hours = duration / 3600;
+      return hours <= 24;
+    });
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      validEntries = validEntries.filter((entry: any) => {
+        const projectName = getProjectName(entry).toLowerCase();
+        const description = (entry.description || entry.notes || "").toLowerCase();
+        const date = formatDateForSearch(entry.startTime || entry.createdAt);
+
+        return (
+          projectName.includes(query) ||
+          description.includes(query) ||
+          date.includes(query)
+        );
+      });
+    }
+
+    const sorted = [...validEntries].sort((a: any, b: any) => {
       let comparison = 0;
 
       switch (sortField) {
@@ -621,6 +708,16 @@ export default function ReportsPage() {
     return sorted.slice(startIndex, startIndex + entriesPerPage);
   };
 
+  // Helper function to format date for search
+  const formatDateForSearch = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   const handleExport = (format: "csv" | "xlsx") => {
     try {
       if (entries.length === 0) {
@@ -650,18 +747,24 @@ export default function ReportsPage() {
         return `${year}-${month}-${day}`;
       };
 
-      const rows = entries.map((entry: any) => {
-        const projectName = getProjectName(entry);
-        const description = entry.description || entry.notes || "";
-        const duration = formatDuration(getEntryDuration(entry));
-        const date = formatDateForExport(entry.startTime || entry.createdAt);
-        const status =
-          entry.endTime || entry.status === "completed" ? "Completed" : "Running";
-        const project = projectMap.get(getProjectId(entry));
-        const earnings = `$${calculateEarnings(entry, project).toFixed(2)}`;
+      const rows = entries
+        .filter((entry: any) => {
+          const duration = getEntryDuration(entry);
+          const hours = duration / 3600;
+          return hours <= 24; // Only export entries with realistic durations
+        })
+        .map((entry: any) => {
+          const projectName = getProjectName(entry);
+          const description = entry.description || entry.notes || "";
+          const duration = formatDuration(getEntryDuration(entry));
+          const date = formatDateForExport(entry.startTime || entry.createdAt);
+          const status =
+            entry.endTime || entry.status === "completed" ? "Completed" : "Running";
+          const project = projectMap.get(getProjectId(entry));
+          const earnings = `$${calculateEarnings(entry, project).toFixed(2)}`;
 
-        return [date, projectName, description, duration, status, earnings];
-      });
+          return [date, projectName, description, duration, status, earnings];
+        });
 
       if (format === "csv") {
         const csvContent = [
@@ -758,17 +861,46 @@ export default function ReportsPage() {
   }
 
   const paginatedEntries = getSortedAndPaginatedEntries();
-  const totalPages = Math.ceil(entries.length / entriesPerPage);
+
+  // Calculate the actual count of entries after filtering (for pagination)
+  const getFilteredEntriesCount = () => {
+    let validEntries = entries.filter((entry: any) => {
+      const duration = getEntryDuration(entry);
+      const hours = duration / 3600;
+      return hours <= 24;
+    });
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      validEntries = validEntries.filter((entry: any) => {
+        const projectName = getProjectName(entry).toLowerCase();
+        const description = (entry.description || entry.notes || "").toLowerCase();
+        const date = formatDateForSearch(entry.startTime || entry.createdAt);
+
+        return (
+          projectName.includes(query) ||
+          description.includes(query) ||
+          date.includes(query)
+        );
+      });
+    }
+
+    return validEntries.length;
+  };
+
+  const validEntriesCount = getFilteredEntriesCount();
+  const totalPages = Math.ceil(validEntriesCount / entriesPerPage);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-black relative overflow-hidden">
       {/* Animated Background Orbs */}
       <div
-        className="fixed top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-purple-500 to-pink-500 rounded-full blur-[120px] opacity-[0.12] pointer-events-none animate-float"
+        className="fixed top-0 right-0 w-125 h-125 bg-linear-to-br from-purple-500 to-pink-500 rounded-full blur-[120px] opacity-[0.12] pointer-events-none animate-float"
         style={{ animationDelay: "0s" }}
       />
       <div
-        className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-br from-blue-500 to-purple-500 rounded-full blur-[100px] opacity-[0.10] pointer-events-none animate-float"
+        className="fixed bottom-0 left-0 w-100 h-100 bg-linear-to-br from-blue-500 to-purple-500 rounded-full blur-[100px] opacity-[0.10] pointer-events-none animate-float"
         style={{ animationDelay: "-10s" }}
       />
 
@@ -777,11 +909,11 @@ export default function ReportsPage() {
         <div className="mb-8 animate-slideIn">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                 <FileSpreadsheet className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-4xl font-bold bg-linear-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   Reports
                 </h1>
                 <p className="text-slate-600 dark:text-slate-400">
@@ -804,7 +936,7 @@ export default function ReportsPage() {
               <div className="relative" ref={exportMenuRef}>
                 <button
                   onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-linear-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/30 transition-all"
                 >
                   <Download className="w-5 h-5" />
                   <span>Export</span>
@@ -854,7 +986,7 @@ export default function ReportsPage() {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="mb-6 bg-white dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl p-6 animate-fadeIn">
+          <div className="mb-6 bg-white dark:bg-white/3 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl p-6 animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
               {/* Project Filter */}
               <div>
@@ -1067,7 +1199,7 @@ export default function ReportsPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-slate-400">
+              <div className="h-75 flex items-center justify-center text-slate-400">
                 No data available for the selected period
               </div>
             )}
@@ -1115,7 +1247,7 @@ export default function ReportsPage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-slate-400">
+              <div className="h-75 flex items-center justify-center text-slate-400">
                 No project data available
               </div>
             )}
@@ -1159,15 +1291,39 @@ export default function ReportsPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[250px] flex items-center justify-center text-slate-400">
+              <div className="h-62.5 flex items-center justify-center text-slate-400">
                 No data available for the selected period
               </div>
             )}
           </ChartCard>
         </div>
 
+        {/* Search Bar */}
+        <div className="mb-6 animate-fadeInUp">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="w-5 h-5 text-slate-400" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search entries by project name, description, or date..."
+              className="w-full pl-12 pr-4 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Detailed Breakdown Table */}
-        <div className="bg-white dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl overflow-hidden animate-fadeInUp">
+        <div className="bg-white dark:bg-white/3 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl overflow-hidden animate-fadeInUp">
           {/* Table Header */}
           <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-600 dark:text-slate-400">
             <div className="col-span-2">
@@ -1257,6 +1413,28 @@ export default function ReportsPage() {
                   : "Start tracking time to see reports here"}
               </p>
             </div>
+          ) : paginatedEntries.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                No entries found
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-6">
+                {searchQuery
+                  ? `No entries match "${searchQuery}"`
+                  : "Try adjusting your filters"}
+              </p>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
+                >
+                  Clear Search
+                </button>
+              )}
+            </div>
           ) : (
             <>
               <div className="divide-y divide-slate-100 dark:divide-white/5">
@@ -1325,8 +1503,9 @@ export default function ReportsPage() {
                 <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-white/10">
                   <div className="text-sm text-slate-600 dark:text-slate-400">
                     Showing {(currentPage - 1) * entriesPerPage + 1} to{" "}
-                    {Math.min(currentPage * entriesPerPage, entries.length)} of{" "}
-                    {entries.length} entries
+                    {Math.min(currentPage * entriesPerPage, validEntriesCount)} of{" "}
+                    {validEntriesCount}
+                    {searchQuery ? ` (filtered from ${entries.length})` : ""} entries
                   </div>
 
                   <div className="flex items-center gap-2">
