@@ -44,3 +44,35 @@ export const deleteUser = async (): Promise<{ message: string }> => {
 
   return response.data;
 };
+
+// Password Reset APIs
+export const forgotPassword = async (
+  email: string,
+): Promise<{ message: string; success: boolean }> => {
+  const response = await api.post<{ message: string; success: boolean }>(
+    "/user/forgot-password",
+    { email },
+  );
+  return response.data;
+};
+
+export const verifyResetToken = async (
+  token: string,
+): Promise<{ valid: boolean; message: string }> => {
+  const response = await api.post<{ valid: boolean; message: string }>(
+    "/user/verify-reset-token",
+    { token },
+  );
+  return response.data;
+};
+
+export const resetPassword = async (
+  token: string,
+  newPassword: string,
+): Promise<{ message: string; success: boolean }> => {
+  const response = await api.post<{ message: string; success: boolean }>(
+    "/user/reset-password",
+    { token, newPassword },
+  );
+  return response.data;
+};

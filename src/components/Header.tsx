@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from './ThemeProvider';
 import { useAuth } from '@/contexts/AuthContext';
-import { Moon, Sun, Clock, Menu, X, LogOut, User, Settings, ChevronDown } from 'lucide-react';
+import { Moon, Sun, Clock, Menu, X, LogOut, User, Settings, ChevronDown, LogIn } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export function Header() {
@@ -63,15 +63,13 @@ export function Header() {
           <Link href="/" className="flex items-center gap-3 group">
             <div className="relative">
               <div className="absolute inset-0 bg-linear-to-r from-primary to-secondary rounded-lg blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
-              <div className="relative w-10 h-10 bg-linear-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-lg">
-                <Clock className="w-6 h-6 text-purple-600" strokeWidth={2.5} />
-              </div>
+
             </div>
-            <div className="hidden sm:block">
-              <h1 className="text-xl font-bold bg-linear-to-r from-purple-600 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold bg-linear-to-r from-purple-600 via-purple-500 to-pink-500 bg-clip-text text-transparent">
                 WorkLogix
               </h1>
-              <p className="text-xs text-base-content/80 -mt-1">Time Tracking</p>
+              <p className="text-xs text-base-content/80 -mt-1 hidden sm:block">Time Tracking</p>
             </div>
           </Link>
 
@@ -109,7 +107,7 @@ export function Header() {
               )}
             </button>
 
-            {/* User Avatar Dropdown */}
+            {/* User Avatar Dropdown (Authenticated) */}
             {isAuthenticated && (
               <div className="relative" ref={userMenuRef}>
                 <button
@@ -168,6 +166,25 @@ export function Header() {
               </div>
             )}
 
+            {/* Login/Signup Buttons (Not Authenticated) */}
+            {!isAuthenticated && (
+              <div className="hidden md:flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="btn btn-sm gap-2 border-2 border-primary text-primary dark:text-white hover:bg-primary/10 dark:hover:bg-primary/20 bg-transparent"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Login</span>
+                </Link>
+                <Link
+                  href="/register"
+                  className="btn btn-primary btn-sm"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
+
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -199,7 +216,8 @@ export function Header() {
                   {item.label}
                 </Link>
               ))}
-              {isAuthenticated && (
+
+              {isAuthenticated ? (
                 <>
                   <div className="divider my-2"></div>
                   <Link
@@ -222,6 +240,27 @@ export function Header() {
                   >
                     Logout
                   </button>
+                </>
+              ) : (
+                <>
+                  <div className="divider my-2"></div>
+                  <div className="px-2 space-y-2">
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="btn btn-block gap-2 border-2 border-primary text-primary dark:text-white hover:bg-primary/10 dark:hover:bg-primary/20 bg-transparent"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      <span>Login</span>
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="btn btn-primary btn-block"
+                    >
+                      <span>Sign Up</span>
+                    </Link>
+                  </div>
                 </>
               )}
             </nav>

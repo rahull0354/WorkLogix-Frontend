@@ -19,12 +19,6 @@ export function Footer() {
       { href: '/privacy', label: 'Privacy' },
       { href: '/terms', label: 'Terms' },
     ],
-    resources: [
-      { href: '/docs', label: 'Documentation' },
-      { href: '/help', label: 'Help Center' },
-      { href: '/api', label: 'API' },
-      { href: '/status', label: 'Status' },
-    ],
   };
 
   const socialLinks = [
@@ -38,7 +32,7 @@ export function Footer() {
     <footer className="border-t border-base-300 bg-base-100/50">
       <div className="container mx-auto px-4 py-12">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand Column */}
           <div className="lg:col-span-2">
             <Link href="/" className="inline-block mb-4">
@@ -85,23 +79,6 @@ export function Footer() {
             <h4 className="font-semibold mb-4 footer-heading">Company</h4>
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-base-content/90 hover:text-primary transition-colors text-sm"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Resources Links */}
-          <div>
-            <h4 className="font-semibold mb-4 footer-heading">Resources</h4>
-            <ul className="space-y-3">
-              {footerLinks.resources.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
